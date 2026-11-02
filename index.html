@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Cyber Safe Month 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+/* Layout: a bold hero built from the palette's geometric blocks, then four stacked step sections in a single column. Steps 1-3 keep an open slot for friends' games; step 4 hosts Specter Lens. */
+:root{
+  --navy:#1E3A8A; --violet:#6D28D9; --sky:#60A5FA; --paper:#FAFAFA; --white:#FFFFFF;
+  --ink:#1E3A8A; --mute:#4b5f8c; --line:#D5DDF0; --tint:#EEF3FD;
+  --display:"Space Grotesk","Trebuchet MS",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.6;padding-top:env(safe-area-inset-top,0px)}
+a{color:var(--violet)}
+img{max-width:100%}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));max-width:1080px;margin-inline:auto}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px))}
+
+/* Top bar */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--navy);color:var(--white)}
+.top .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;padding-block:12px}
+.logo{font-family:var(--display);font-weight:700;letter-spacing:.06em;font-size:16px;margin-right:auto;text-decoration:none;color:var(--white)}
+.top nav{display:flex;flex-wrap:wrap;gap:6px 14px}
+.top nav a{color:var(--white);text-decoration:none;font-family:var(--mono);font-size:13px;letter-spacing:.03em;padding:4px 2px;border-bottom:2px solid transparent}
+.top nav a:hover,.top nav a:focus-visible{border-bottom-color:var(--sky);outline:none}
+
+/* Hero */
+.hero{background:var(--navy);color:var(--white);overflow:hidden}
+.hero .wrap{display:grid;grid-template-columns:1fr;gap:24px;align-items:center;padding-block:48px 56px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--sky)}
+.hero h1{font-family:var(--display);font-weight:700;font-size:clamp(34px,6vw,60px);line-height:1.05;margin:10px 0 16px;letter-spacing:-.01em;text-wrap:balance}
+.hero p{margin:0;font-size:18px;max-width:52ch;color:#dbe6ff}
+.hero .cta{display:inline-block;margin-top:22px;background:var(--violet);color:var(--white);padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:600}
+.hero .cta:hover{filter:brightness(1.1)}
+
+/* Steps */
+.steps{padding-block:12px 40px}
+.step{background:var(--white);border:1px solid var(--line);border-radius:14px;padding:24px;margin-top:22px;scroll-margin-top:80px}
+.step-head{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:center;margin-bottom:6px}
+.badge{font-family:var(--display);font-weight:700;font-size:15px;background:var(--navy);color:var(--white);width:44px;height:44px;border-radius:10px;display:grid;place-items:center;flex:none}
+.step:nth-of-type(4) .badge{background:var(--violet)}
+.step h2{font-family:var(--display);font-size:clamp(22px,4vw,30px);margin:0;line-height:1.15;text-wrap:balance}
+.lead{color:var(--mute);margin:8px 0 0;max-width:62ch}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}
+@media (max-width:720px){.cols{grid-template-columns:1fr}}
+.cols h3{font-family:var(--mono);font-weight:500;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--violet);margin:0 0 6px}
+.cols ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.box{background:var(--tint);border-radius:10px;padding:14px 16px}
+
+/* Open slot for friends' games */
+.slot{margin-top:20px;border:2px dashed var(--sky);border-radius:12px;padding:20px;text-align:center;background:var(--paper)}
+.slot strong{font-family:var(--display);font-size:18px;display:block;margin-bottom:4px}
+.slot p{margin:0 auto;color:var(--mute);max-width:52ch;font-size:15px}
+.slot code{font-family:var(--mono);font-size:13px;background:var(--tint);padding:1px 5px;border-radius:4px}
+
+/* Game embed */
+.game{margin-top:20px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:var(--navy)}
+.game iframe{display:block;width:100%;height:min(82vh,760px);min-height:560px;border:0}
+.game-foot{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--white);font-size:14px;color:var(--mute)}
+.game-foot a{font-weight:600}
+.btn{display:inline-block;background:var(--violet);color:var(--white)!important;padding:9px 14px;border-radius:8px;text-decoration:none;font-weight:600}
+
+.rule{display:flex;gap:10px;align-items:flex-start;font-size:15px}
+.rule i{flex:none;width:10px;height:10px;border-radius:3px;background:var(--sky);margin-top:7px}
+
+footer{background:var(--navy);color:#dbe6ff;padding-block:28px}
+footer .wrap{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-between;font-size:14px}
+footer a{color:#fff}
+
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="logo" href="#top">CYBER SAFE 2026</a>
+    <nav aria-label="Steps">
+      <a href="#step1">1 Passwords</a>
+      <a href="#step2">2 Multifactor</a>
+      <a href="#step3">3 Updates</a>
+      <a href="#step4">4 Recognize &amp; report</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero" id="top">
+  <div class="wrap">
+    <div>
+      <div class="eyebrow">Cybersecurity Awareness Month · 2026</div>
+      <h1>Four habits that keep you safe online.</h1>
+      <p>Each step below covers one habit. Read it, try it, then play the game for that step. Step 4 is ready now. The other slots are open for games from friends.</p>
+    </div>
+  </div>
+</section>
+
+<main class="steps wrap">
+
+  <section class="step" id="step1" aria-labelledby="h1">
+    <div class="step-head"><span class="badge">01</span><h2 id="h1">Use strong, unique passwords</h2></div>
+    <p class="lead">A long passphrase you never reuse is much harder to crack, and a password manager keeps track of them so you don't have to.</p>
+    <div class="cols">
+      <div><h3>Do this</h3><ul>
+        <li>Use a passphrase of four or more random words.</li>
+        <li>Give every account its own password.</li>
+        <li>Store them in a password manager, not a note or a spreadsheet.</li>
+      </ul></div>
+      <div class="box"><h3>Why it matters</h3><p style="margin:0">When one website leaks, attackers try the same password everywhere. A unique password stops that chain.</p></div>
+    </div>
+    <div class="slot"><strong>Open game slot</strong><p>Friends: send your game for this step and it goes here. Write it as a single HTML file in the same style as Specter Lens.</p></div>
+  </section>
+
+  <section class="step" id="step2" aria-labelledby="h2">
+    <div class="step-head"><span class="badge">02</span><h2 id="h2">Turn on multifactor authentication</h2></div>
+    <p class="lead">A second check, such as an app prompt or a security key, stops most account takeovers even when a password has leaked.</p>
+    <div class="cols">
+      <div><h3>Do this</h3><ul>
+        <li>Turn on MFA for email, banking and shopping accounts first.</li>
+        <li>Prefer an authenticator app or security key over text codes.</li>
+        <li>Never share a code, and never approve a sign-in you didn't start.</li>
+      </ul></div>
+      <div class="box"><h3>Why it matters</h3><p style="margin:0">Microsoft reports that MFA blocks the vast majority of automated account-takeover attacks.</p></div>
+    </div>
+    <div class="game" id="play">
+      <iframe src="game2.html" title="Specter Lens: Recognize and report scams" loading="lazy" allow="autoplay"></iframe>
+      <div class="game-foot"><span>Layer Up: Crypto Vault</span><a class="btn" href="game2.html" target="_blank" rel="noopener">Open full screen</a></div>
+    </div>
+  </section>
+
+  <section class="step" id="step3" aria-labelledby="h3">
+    <div class="step-head"><span class="badge">03</span><h2 id="h3">Keep software up to date</h2></div>
+    <p class="lead">Updates patch the security holes attackers look for, and many attacks use flaws that already have fixes.</p>
+    <div class="cols">
+      <div><h3>Do this</h3><ul>
+        <li>Turn on automatic updates for your phone, computer, browser and apps.</li>
+        <li>Restart when an update asks you to. Many fixes don't take effect until then.</li>
+        <li>Remove apps and browser extensions you no longer use.</li>
+      </ul></div>
+      <div class="box"><h3>Why it matters</h3><p style="margin:0">Old software is one of the easiest ways in. Updating takes minutes and closes doors that criminals rely on.</p></div>
+    </div>
+    <div class="slot"><strong>Open game slot</strong><p>Friends: send your game for this step and it goes here.</p></div>
+  </section>
+
+  <section class="step" id="step4" aria-labelledby="h4">
+    <div class="step-head"><span class="badge">04</span><h2 id="h4">Recognize and report scams</h2></div>
+    <p class="lead">Scams arrive as emails, texts, direct messages, calls and pop-ups. Pause, look for red flags, and report what you find. Play Specter Lens to practice.</p>
+    <div class="cols">
+      <div><h3>Red flags</h3><ul>
+        <li>Urgency, threats, or secrecy</li>
+        <li>Lookalike senders and links</li>
+        <li>Requests for codes, passwords or gift cards</li>
+      </ul></div>
+      <div class="box"><h3>Report it</h3><ul>
+        <li>Work email: use the Report button or your IT team</li>
+        <li>Texts: forward to 7726 (SPAM)</li>
+        <li>Fraud: <a href="https://reportfraud.ftc.gov" target="_blank" rel="noopener">ReportFraud.ftc.gov</a></li>
+      </ul></div>
+    </div>
+    <div class="game" id="play">
+      <iframe src="game4.html" title="Specter Lens: Recognize and report scams" loading="lazy" allow="autoplay"></iframe>
+      <div class="game-foot"><span>Specter Lens</span><a class="btn" href="game4.html" target="_blank" rel="noopener">Open full screen</a></div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap"><span>Cyber Safe 2026 · Cybersecurity Awareness Month</span><a href="#top">Back to top</a></div>
+</footer>
+
+</body>
+</html>

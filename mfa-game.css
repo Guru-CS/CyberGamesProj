@@ -1,0 +1,270 @@
+.layer-up-game {
+  --lu-ink: #1E3A8A;
+  --lu-muted: #1E3A8A;
+  --lu-paper: #FAFAFA;
+  --lu-panel: #FAFAFA;
+  --lu-line: #60A5FA;
+  --lu-sky: #60A5FA;
+  --lu-purple: #6D28D9;
+  box-sizing: border-box;
+  width: min(100%, 1120px);
+  margin: 0 auto;
+  padding: 0;
+  color: var(--lu-ink);
+  background: transparent;
+  font-family: "Aptos Display", "Trebuchet MS", sans-serif;
+}
+
+.layer-up-game *,
+.layer-up-game *::before,
+.layer-up-game *::after {
+  box-sizing: border-box;
+}
+
+.layer-up-game button {
+  color: inherit;
+  font: inherit;
+}
+
+.lu-game-frame {
+  overflow: hidden;
+  border: 1px solid #60A5FA;
+  background: #1E3A8A;
+  box-shadow: 7px 7px 0 #60A5FA;
+}
+
+.lu-game-bar {
+  display: flex;
+  min-height: 53px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 16px;
+  border-bottom: 1px solid #60A5FA;
+  color: #FAFAFA;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.lu-vault-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lu-vault-status::before {
+  width: 9px;
+  aspect-ratio: 1;
+  background: #6D28D9;
+  border-radius: 50%;
+  content: "";
+}
+
+.lu-vault-status.is-secure::before {
+  background: var(--lu-sky);
+}
+
+.lu-reset {
+  min-width: 82px;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid #60A5FA;
+  background: transparent;
+  color: #FAFAFA !important;
+  cursor: pointer;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase;
+}
+
+.lu-reset:hover,
+.lu-reset:focus-visible {
+  border-color: var(--lu-sky);
+  outline: 2px solid var(--lu-sky);
+  outline-offset: 2px;
+}
+
+.lu-canvas-wrap {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  background: #1E3A8A;
+}
+
+.lu-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 960 / 480;
+  outline: none;
+}
+
+.lu-canvas:focus-visible {
+  box-shadow: inset 0 0 0 3px var(--lu-sky);
+}
+
+.lu-lower-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(200px, 0.7fr);
+  gap: 22px;
+  padding: 18px 20px 20px;
+  border-top: 1px solid #60A5FA;
+  color: #FAFAFA;
+}
+
+.lu-objective {
+  min-width: 0;
+}
+
+.lu-objective h2 {
+  margin: 0 0 7px;
+  color: var(--lu-sky);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lu-objective p {
+  margin: 0;
+  color: #FAFAFA;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.lu-collectibles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lu-collectibles li {
+  display: inline-flex;
+  min-height: 27px;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid #60A5FA;
+  color: #FAFAFA;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.lu-collectibles li::before {
+  width: 7px;
+  aspect-ratio: 1;
+  background: #1E3A8A;
+  border-radius: 50%;
+  content: "";
+}
+
+.lu-collectibles li.is-collected {
+  border-color: #60A5FA;
+  color: #60A5FA;
+}
+
+.lu-collectibles li.is-collected::before {
+  background: #60A5FA;
+}
+
+.lu-action-side {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.lu-run-button {
+  min-height: 46px;
+  padding: 10px 17px;
+  border: 1px solid #6D28D9;
+  background: #6D28D9;
+  color: #FAFAFA !important;
+  cursor: pointer;
+  font-size: 13px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.lu-run-button:hover,
+.lu-run-button:focus-visible {
+  background: #1E3A8A;
+  outline: 2px solid #60A5FA;
+  outline-offset: 3px;
+}
+
+.lu-touch-controls {
+  display: none;
+  grid-template-columns: 1fr 1fr 1.3fr;
+  gap: 8px;
+  padding: 12px 14px;
+  border-top: 1px solid #60A5FA;
+}
+
+.lu-touch-controls button {
+  min-height: 48px;
+  border: 1px solid #60A5FA;
+  background: #1E3A8A;
+  color: #FAFAFA;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 900;
+  touch-action: none;
+  user-select: none;
+}
+
+.lu-touch-controls button:active,
+.lu-touch-controls button.is-pressed {
+  border-color: #60A5FA;
+  background: #6D28D9;
+  color: #FAFAFA;
+}
+
+.lu-touch-controls button:focus-visible {
+  outline: 2px solid #60A5FA;
+  outline-offset: 2px;
+}
+
+.lu-visually-hidden {
+  position: absolute !important;
+  overflow: hidden !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+@media (max-width: 650px) {
+  .lu-lower-panel {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .lu-action-side {
+    justify-content: flex-start;
+  }
+
+  .lu-touch-controls {
+    display: grid;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .layer-up-game *,
+  .layer-up-game *::before,
+  .layer-up-game *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

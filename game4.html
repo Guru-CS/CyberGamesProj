@@ -1,0 +1,915 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Specter Lens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+.view{position:relative;width:100%;max-width:900px;aspect-ratio:900/540}
+#c,#ov{position:absolute;inset:0;width:100%;height:100%;border-radius:10px}
+#c{box-shadow:0 8px 28px rgba(30,58,138,.2)}
+#ov{cursor:crosshair;touch-action:none}
+/* Layout: a city of buildings seen from above. A blaster scope follows the mouse, zooms in on targets, and shows a quick ID. Lingering on a scammer traces you; pursuers chase until you break away. */
+:root{--paper:#FAFAFA;--navy:#1E3A8A;--violet:#6D28D9;--sky:#60A5FA;--white:#FFFFFF;--mute:#4b5f8c;--line:#D5DDF0;--good:#15803D;--danger:#B91C1C;--warn:#B45309;
+  --display:"Space Grotesk","Trebuchet MS",system-ui,sans-serif;--body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;color-scheme:light}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--paper);color:var(--navy);font-family:var(--body);font-size:15px;overflow:hidden}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid var(--violet);outline-offset:2px}
+#app{height:100%;display:flex;flex-direction:column}
+.hud{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;padding-block:8px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:var(--navy);color:var(--white)}
+.brand{font-family:var(--display);font-weight:700;letter-spacing:.08em;margin-right:auto;font-size:15px}
+.stat{display:flex;flex-direction:column;gap:0;min-width:0}
+.stat label{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b9c9f0}
+.stat output{font-family:var(--display);font-weight:700;font-size:15px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.shields{display:flex;gap:4px}
+.shields svg{width:14px;height:16px}
+#stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;padding:8px max(16px,env(safe-area-inset-left,0px))}
+#c{display:block;width:100%;max-width:900px;height:auto;aspect-ratio:900/540;border-radius:10px;cursor:crosshair;touch-action:none;box-shadow:0 8px 28px rgba(30,58,138,.2)}
+#hint{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);font-family:var(--mono);font-size:12px;background:var(--white);border:1px solid var(--violet);color:var(--violet);padding:6px 12px;border-radius:6px;white-space:nowrap;max-width:calc(100% - 32px);overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+#hint.alert{border-color:var(--danger);color:var(--danger)}
+#toast{position:absolute;top:10px;left:50%;transform:translate(-50%,-8px);opacity:0;transition:opacity .25s,transform .25s;background:var(--white);border-left:3px solid var(--violet);box-shadow:0 4px 16px rgba(0,0,0,.15);padding:8px 14px;border-radius:6px;font-size:13px;max-width:min(520px,calc(100% - 32px));pointer-events:none}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+#toast.bad{border-left-color:var(--danger)} #toast.good{border-left-color:var(--good)} #toast.warn{border-left-color:var(--warn)}
+.overlay{position:fixed;inset:0;z-index:50;background:rgba(30,58,138,.45);display:flex;align-items:center;justify-content:center;padding-block:calc(16px + env(safe-area-inset-top,0px)) calc(16px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.overlay[hidden]{display:none}
+.sheet{width:min(640px,100%);max-height:100%;overflow:auto;background:var(--white);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:14px;box-shadow:0 20px 60px rgba(30,58,138,.35)}
+.sheet h2{font-family:var(--display);font-size:24px;margin:0;line-height:1.2;text-wrap:balance}
+.sheet h3{font-family:var(--mono);font-weight:500;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);margin:0}
+.sheet p{margin:0;line-height:1.55}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--violet)}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{border-radius:8px;padding:11px 16px;font-weight:600;border:1px solid var(--violet);background:var(--violet);color:var(--white)}
+.btn.ghost{background:transparent;color:var(--violet)}
+.btn:hover{filter:brightness(1.08)}
+.how{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;line-height:1.5}
+.tag{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);border-radius:4px;padding:3px 7px;color:var(--mute)}
+.tag.boss{border-color:var(--danger);color:var(--danger)}
+.verdict{border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:6px;border:1px solid}
+.verdict.good{border-color:var(--good);background:rgba(21,128,61,.08)}
+.verdict.bad{border-color:var(--danger);background:rgba(185,28,28,.07)}
+.verdict h4{margin:0;font-family:var(--display);font-size:19px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.verdict.good h4{color:var(--good)} .verdict.bad h4{color:var(--danger)}
+.verdict h4 span{font-family:var(--mono);font-size:14px;font-weight:500}
+.lesson{font-weight:600}
+.spotted{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
+.spotted li{font-size:13px;line-height:1.45;border-left:2px solid var(--danger);padding:2px 0 2px 10px}
+.card-fact{border:1px solid rgba(109,40,217,.4);border-radius:10px;padding:14px;background:rgba(109,40,217,.06);display:flex;flex-direction:column;gap:6px}
+.cyber{border-left:3px solid var(--sky);padding:6px 0 6px 12px;font-size:14px;line-height:1.5}
+.cyber b{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);display:block;font-weight:500;margin-bottom:2px}
+.note{font-size:13px;color:var(--mute)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.stats div{border:1px solid var(--line);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:2px}
+.stats b{font-family:var(--display);font-size:22px;font-variant-numeric:tabular-nums}
+.stats span{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+/* message cards (inbox-style, always light) */
+#vBody{color:#1b2130;font-size:15px;line-height:1.55}
+.mail{background:#fff;border:1px solid #dde1e8;border-radius:8px;overflow:hidden}
+.mail-bar{background:#eef1f6;padding:6px 12px;font-family:var(--mono);font-size:11px;color:#5d6779}
+.mail-subj{font-weight:600;font-size:17px;padding:12px 14px 4px}
+.mail-from{padding:4px 14px 10px;border-bottom:1px solid #e5e8ee}
+.from{font-size:14px;word-break:break-word}
+.to{font-size:12px;color:#5d6779}
+.mail-body{padding:12px 14px;word-break:break-word}
+.attach{margin:0 14px 14px;display:inline-block;border:1px solid #d2d7e0;border-radius:6px;padding:7px 11px;font-family:var(--mono);font-size:13px;word-break:break-all;max-width:calc(100% - 28px)}
+.phone{background:#f3f5f9;border-radius:18px;padding:14px;max-width:380px;margin:0 auto;width:100%}
+.phone-head{text-align:center;font-size:13px;color:#5d6779;padding-bottom:8px;border-bottom:1px solid #dde1e8;margin-bottom:10px;word-break:break-word}
+.phone-head strong{display:block;color:#1b2130;font-size:15px}
+.bubble{background:#e3e7ee;border-radius:14px 14px 14px 4px;padding:10px 12px;word-break:break-word}
+.bubble.dm{background:#fff;border:1px solid #dde1e8}
+.call{background:#121a2c;color:#e8edf6;border-radius:14px;padding:16px;max-width:420px;margin:0 auto;width:100%}
+.call-id{text-align:center;font-size:17px;font-weight:600;word-break:break-word}
+.call-lab{text-align:center;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#8e9cb6;margin:4px 0 12px}
+.call-body{background:#1b2540;border-radius:10px;padding:12px;font-style:italic;word-break:break-word}
+#vBody .seg.found{background:rgba(185,28,28,.14);box-shadow:inset 0 -2px 0 #B91C1C;border-radius:3px}
+.lnk{color:#1b5fd1;text-decoration:underline}
+#scan{position:absolute;right:max(12px,env(safe-area-inset-right,0px));top:12px;width:290px;max-height:calc(100% - 24px);overflow:auto;background:var(--white);border:2px solid var(--violet);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px;box-shadow:0 8px 24px rgba(30,58,138,.25);z-index:3}
+#scan[hidden]{display:none}
+.scan-head{display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:12px}
+.scan-bar{height:6px;background:#e3e9f6;border-radius:3px;overflow:hidden}
+.scan-bar i{display:block;height:100%;width:100%;background:var(--warn);transition:width .1s linear}
+.scan-body{color:#1b2130;font-size:13px;line-height:1.5;max-height:300px;overflow:auto}
+.scan-body .seg{cursor:pointer;border-radius:3px;transition:background .2s}
+.scan-body .seg.tagged{background:rgba(185,28,28,.16);box-shadow:inset 0 -2px 0 #B91C1C}
+.scan-body .seg.nope{animation:nope .3s}
+@keyframes nope{25%{transform:translateX(-2px)}75%{transform:translateX(2px)}}
+.scan-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-family:var(--mono);font-size:12px}
+.scan-foot .btn{padding:7px 12px;font-size:13px}
+@media (max-width:560px){.hud{gap:4px 12px}.stat output{font-size:14px}.sheet{padding:16px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="hud">
+    <div class="brand">SPECTER LENS</div>
+    <div class="stat"><label>District</label><output id="hLevel">1 of 3</output></div>
+    <div class="stat"><label>Targets left</label><output id="hLeft">0</output></div>
+    <div class="stat"><label>Shields</label><div class="shields" id="hShields" role="img" aria-label="shields"></div></div>
+    <div class="stat"><label>Pursuing</label><output id="hPursue">0 / 3</output></div>
+    <div class="stat"><label>Score</label><output id="hScore">0</output></div>
+  </header>
+  <main id="stage">
+    <div class="view"><canvas id="c" width="900" height="540" aria-hidden="true"></canvas><canvas id="ov" width="900" height="540" aria-label="City in 3D with a blaster scope. Aim with the mouse, click a contact to probe, then blast."></canvas></div>
+    <div id="toast" role="status"></div>
+    <aside id="scan" hidden aria-label="Probe on contact">
+      <div class="scan-head"><span class="eyebrow">Probe on contact</span><span id="scanTime">10s</span></div>
+      <div class="scan-bar"><i id="scanBar"></i></div>
+      <div class="scan-body" id="scanBody"></div>
+      <div class="scan-foot"><span id="scanCount">Tagged 0</span><div class="row"><button class="btn" id="scanBlast" type="button">Blast</button><button class="btn ghost" id="scanSafe" type="button">Mark safe</button><button class="btn ghost" id="scanClose" type="button">Close</button></div></div>
+    </aside>
+    <div id="hint" hidden></div>
+  </main>
+</div>
+
+<div class="overlay" id="title">
+  <div class="sheet">
+    <div class="eyebrow">Cybersecurity Awareness Month · Step 4 of 4</div>
+    <h2>Specter Lens: Recognize &amp; Report</h2>
+    <p>Use your blaster scope to find the scammers among the contacts, and stop them. Brass plaques around the city hold facts about spotting and reporting scams.</p>
+
+    <div class="row"><button class="btn" id="btnStart" type="button">Start mission</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="verdict" hidden>
+  <div class="sheet" role="dialog" aria-labelledby="vHead">
+    <div class="row"><span class="tag" id="vChannel">Email</span><span class="tag boss" id="vBoss" hidden>Boss</span></div>
+    <div id="vBody"></div>
+    <div id="vHead" class="verdict"></div>
+    <div id="vFlags"></div>
+    <div id="vFact"></div>
+    <div class="row"><button class="btn" id="vContinue" type="button">Continue</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="fact" hidden>
+  <div class="sheet" role="dialog" aria-labelledby="fTitle">
+    <div class="eyebrow">Boss stopped · Fact card</div>
+    <h2 id="fTitle"></h2>
+    <div id="fBody"></div>
+    <div class="row"><button class="btn" id="fContinue" type="button">Continue</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="tut" hidden>
+  <div class="sheet" role="dialog" aria-labelledby="tutTitle">
+    <div class="eyebrow">Quick tutorial</div>
+    <h2 id="tutTitle">How to play</h2>
+    <ol class="how">
+      <li><b>Move</b> with WASD or arrows. Hold <b>Shift</b> to sprint.</li>
+      <li><b>Aim</b> the scope with the mouse (or I J K L). Hover a contact for a quick ID.</li>
+      <li><b>Click a contact</b> to launch a probe on them. Tag every suspicious part of their message before the probe runs out.</li>
+      <li><b>Mark safe</b> clears a genuine contact so the probe never flags them. Marking a scammer safe lets them slip away and costs a shield.</li>
+      <li><b>Blast</b> them with the Blast button or Space while the probe is on. Blasting a genuine contact costs a shield. Anyone who spots the probe starts chasing you.</li>
+    </ol>
+    <div class="row"><button class="btn" id="tutGo" type="button">Got it, start</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="fade" hidden>
+  <div class="sheet" style="text-align:center;align-items:center">
+    <div class="eyebrow">District cleared</div>
+    <h2 id="fadeT"></h2>
+  </div>
+</div>
+
+<div class="overlay" id="end" hidden>
+  <div class="sheet">
+    <div class="eyebrow" id="eEyebrow">Mission complete</div>
+    <h2 id="eTitle"></h2>
+    <p id="eBody"></p>
+    <div class="stats" id="eStats"></div>
+    <div class="row"><button class="btn" id="btnRestart" type="button">Play again</button><button class="btn ghost" id="btnTitle" type="button">Title screen</button></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+
+const MSG = {
+ // ---- Floor 1: Grand Lobby ----
+ f0:{
+  scams:[
+   {ch:'Email', from:'IT Service Desk <[[helpdesk@harb0rline-support.net||The domain swaps an "o" for a zero. Harborline\'s real domain is harborline.com.]]>',
+    subj:'[[Action required: password expires in 2 hours||A deadline designed to rush you past careful thinking.]]',
+    body:'[[Dear user,||Your IT team knows your name. A generic greeting is a sign of mass phishing.]]\n\nTo keep access to email, [[confirm your current password now||Real resets never ask for your current password through an email link.]]:\n\n{{Keep my password|https://harborline.account-verify.co/reset|The button says Harborline, but the site is account-verify.co.}}',
+    ctx:'You work at Harborline (you@harborline.com).', rep:'button', lesson:'IT will never ask you to confirm your password through a link in an email.'},
+   {ch:'Text', from:'[[+1 (520) 555-0183||A random number, not the short code your toll agency normally uses.]]',
+    body:'TollPass: You have an unpaid toll of $6.99. [[Pay by 11:59 PM or pay a $50 late fee||A small bill with a big threatened fee is meant to make you pay before thinking.]]: {{tollpass-pay.xyz/settle|https://tollpass-pay.xyz/settle|Toll agencies do not use .xyz addresses. Look up the official site yourself.}}',
+    ctx:'You drove on a toll road last month.', rep:'sms', lesson:'Check bills in the official app or a site you type yourself, never through a texted link.'},
+   {ch:'Email', from:'Accounts <[[billing@quickpay-invoices.support||You have never done business with this sender.]]>', subj:'Invoice #44817 is overdue',
+    body:'Please see the attached invoice. [[Payment is overdue and goes to collections within 24 hours.||Threats of collections push you to open the file fast.]]',
+    att:'[[Invoice_44817.pdf.exe||A double extension. The real file type is .exe, a program, not a PDF.]]',
+    ctx:'You don\'t handle billing, and you don\'t know this vendor.', rep:'button', lesson:'Check the full file name. .exe, .scr and .js files run programs.'}
+  ],
+  legit:[
+   {ch:'Email', from:'Pat Kim <pat.kim@harborline.com>', subj:'Notes from today\'s meeting',
+    body:'Hi team, thanks for a good discussion. Notes are attached. Let me know if I missed anything.\n\nPat', att:'Meeting_Notes_Nov1.docx',
+    ctx:'You were in Pat\'s meeting this morning.', lesson:'Expected, from a coworker\'s real address, with no pressure and a normal file type.'},
+   {ch:'Text', from:'Northbridge · 72166', body:'Northbridge: Your sign-in code is 482019. It expires in 10 minutes. Never share this code. We will never call to ask for it.',
+    ctx:'You just signed in to the Northbridge app.', lesson:'You asked for it, there is no link, and it warns you not to share it.'}
+  ],
+  boss:{name:'Frank Abagnale Jr.', title:'Fake payroll notice', ch:'Email', from:'Harborline Payroll <[[payroll@harborline-pay.com||Not harborline.com. A lookalike domain.]]>', subj:'[[Direct deposit change pending: verify today||Urgency plus a request to verify a money change.]]',
+    body:'Your direct deposit details were changed from a new device. [[If this was not you, verify your bank login within 24 hours or payroll will be stopped.||Stopping pay is a threat designed to make you act first.]]\n\n{{Verify my bank details|https://harborline-pay.com/verify|A form that collects your bank login. Real payroll changes happen inside the HR portal.}}',
+    ctx:'You don\'t remember changing your pay details.', rep:'button', bestNote:'Report it through the Report button.', lesson:'Payroll changes are made inside your HR portal. Never verify bank details through an emailed link.'}
+ },
+ // ---- Floor 2: Server Haven ----
+ f1:{
+  scams:[
+   {ch:'DM', app:'Harborline Chat', from:'[[Harborline Security (External)||The External tag means this account is outside your company, whatever the name says.]]',
+    body:'We found malware on your laptop. [[Install our remote fix tool right now so we can clean it.||Remote-access tools give the attacker full control of your computer.]] {{Download fix|https://harborline-it.support/RemoteFix.exe|An .exe from an outside site, not your company\'s software portal.}}',
+    ctx:'Your company uses this chat. Real IT tickets come from the internal help desk.', rep:'it', lesson:'Never install remote-access software from a chat message. Report it to IT directly.'},
+   {ch:'Text', from:'[[+1 (917) 555-0144||An unknown number claiming to be someone you know.]]',
+    body:'Hi, it\'s me, [[my phone broke and this is my new number||The excuse explains the strange number.]]. Can you [[send $400 on Zelle right now?||Payment apps are like cash. Once sent, it is very hard to get back.]] [[I\'ll explain later, it\'s urgent.||Vague and urgent keeps you from asking questions.]]',
+    ctx:'Your sister usually texts from her regular number.', rep:'sms', lesson:'Call the person on the number you already have before sending money.'},
+   {ch:'Email', from:'Sam Patel via DocShare <[[no-reply@docshare-files.ru||Your company does not use DocShare, and this domain is unfamiliar.]]>',
+    subj:'Sam Patel shared "[[Q4 Salary Adjustments.xlsx||A tempting file name for a click.]]"',
+    body:'{{Open document|https://docshare-files.ru/login|Opens a fake sign-in page on an outside site.}}\n\n[[Sign in with your email password to view the file.||A password page reached through a link is how passwords get stolen.]]',
+    ctx:'Your team shares files on the Harborline drive.', rep:'button', lesson:'Open shared files from the app you normally use, not from an email link.'}
+  ],
+  legit:[
+   {ch:'DM', app:'Harborline Chat', from:'Priya Shah · Design', body:'Hey! I put the logo files in the Brand Assets folder on the shared drive, like we talked about. Let me know if you need other sizes.',
+    ctx:'You asked Priya for the logo files yesterday.', lesson:'A coworker following up on something you actually asked for, with no link and no request for money.'},
+   {ch:'Text', from:'CityCare Pharmacy · 22733', body:'CityCare: Your prescription is ready for pickup at our Main St location. Reply STOP to opt out.',
+    ctx:'You dropped off a prescription this morning.', lesson:'Expected, with no link, no payment and no personal data requested.'}
+  ],
+  boss:{name:'Kevin Mitnick', title:'Fake help desk call', ch:'Call', from:'[[Harborline IT Help Desk||Caller ID can be spoofed to show any name.]]',
+    body:'Hi, this is the help desk. We\'re moving your mailbox tonight. [[A sign-in code is about to arrive on your phone. Read it back to me so I can finish.||IT never needs your sign-in code. Reading it out lets the caller log in as you.]] [[I have 200 more people to get through, so please hurry.||Pressure is a sign the call is not what it claims.]]',
+    ctx:'Live call. You did not ask IT for help today.', rep:'it', bestNote:'Report to IT through a number you already know.', lesson:'Hang up. Call IT on a number you already have. Never read out a code.'}
+ },
+ // ---- Floor 3: Investment Floor ----
+ f2:{
+  scams:[
+   {ch:'Email', from:'Global Yield Fund <[[invest@yield-guarantee.org||A firm you never contacted.]]>', subj:'[[Guaranteed 30% monthly returns||No real investment guarantees returns like this.]]',
+    body:'Our members doubled savings this quarter. [[Only 3 spots left, offer ends tonight.||Fake scarcity pushes you to act before researching.]]\n\n[[Deposit at least $2,500 in Bitcoin to secure your spot.||Crypto payments cannot be reversed.]]\n\n[[Earn bonuses for each friend you recruit!||Paying for recruits is how Ponzi schemes keep going.]]',
+    ctx:'You have never heard of this fund.', rep:'ftc', lesson:'Guaranteed returns, crypto and pressure together are a scam.'},
+   {ch:'Email', from:'Marketplace Buyer <[[buyer.kelly88@mail-pay.net||A new sender with a generic address.]]>', subj:'Sold! Refund my overpayment',
+    body:'I\'ll buy your bike for $200. [[I sent $500 by mistake, please refund the extra $300.||The overpayment trick. Their payment gets reversed and your refund is gone.]]\n\n{{Confirm payment here|https://secure-pay-verify.net/claim|An outside site that steals login and bank details.}}',
+    ctx:'You listed a bike for $200 on a marketplace app.', rep:'app', lesson:'Keep every payment inside the marketplace. Never refund a "mistaken" overpayment.'},
+   {ch:'Email', from:'ShopMart Rewards <[[rewards@shopmart-gifts.win||A lookalike domain.]]>', subj:'[[You\'ve won a $500 gift card!||You cannot win a contest you never entered.]]',
+    body:'[[Claim within 24 hours||A short window rushes you.]] and [[just cover the $4.95 shipping fee by card.||A small fee is how they get your card number.]]\n\n{{Claim my card|https://shopmart-gifts.win/claim|A page built to steal card details.}}',
+    ctx:'You shop at ShopMart but never entered a contest.', rep:'button', lesson:'Prizes never require a card payment to claim.'}
+  ],
+  legit:[
+   {ch:'Email', from:'Harborline HR <hr@harborline.com>', subj:'Open enrollment: Nov 1 to Nov 15',
+    body:'Open enrollment runs November 1 through 15. Review options anytime in the {{HR portal|https://hr.harborline.com/benefits}}. If you make no changes, your benefits carry over.',
+    ctx:'Harborline HR always sends from @harborline.com.', lesson:'Real domain, a two-week window, and nothing bad happens if you wait.'},
+   {ch:'Email', from:'StreamBox <no-reply@streambox.com>', subj:'Reset your password',
+    body:'We received a request to reset your password. If this was you, use the link within 30 minutes.\n\n{{Reset password|https://www.streambox.com/reset}}\n\nIf you did not ask for this, ignore this email.',
+    ctx:'You clicked "Forgot password" on StreamBox two minutes ago.', lesson:'You started it, the link goes to streambox.com, and it says it is safe to ignore.'}
+  ],
+  boss:{name:'Charles Ponzi', title:'Exclusive fund, guaranteed returns', ch:'Email', from:'[[Private Wealth Circle <invite@wealth-circle-private.com||Unsolicited, exclusive and unverified.]]>', subj:'[[Invitation only: steady returns every month||Steady returns with no risk is a warning sign.]]',
+    body:'Our fund has never had a losing month. [[Your name was referred by a trusted friend, so spots are limited.||Referral pressure makes you trust without checking.]] [[Send your funds now and we will handle the rest. No need to check our registration.||Refusing to be checked is a major red flag. Legitimate advisers are registered and can be looked up.]]\n\n{{Join the fund|https://wealth-circle-private.com/join|Collects money on a site you were not expecting.}}',
+    ctx:'You have never heard of this fund.', rep:'ftc', bestNote:'Report to the FTC and to your state securities regulator.', lesson:'Look up any adviser or fund on FINRA BrokerCheck or the SEC before sending money.'}
+ }
+};
+
+
+const PARKER_BOSS={name:'George C. Parker', title:'Fake landmark deed', ch:'Email',
+  from:'Metro Land Registry <[[records@metro-landregistry.co||A lookalike registry. Official records come from government sites.]]>',
+  subj:'[[Own a landmark: certified deed, final offer today||Urgency and a deal too good to be true.]]',
+  body:'Congratulations, you are a pre-approved buyer for a famous city landmark. [[Wire a $5,000 processing deposit within 48 hours to reserve it.||Wire transfers cannot be recalled, and real sales do not need a deposit before you see the paperwork.]] [[Ownership certificates go only to our most trusted buyers, so please keep this confidential.||Secrecy keeps you from checking with an official office.]]\n\n{{Review the deed|https://metro-landregistry.co/deed|A lookalike site that collects payments.}}',
+  ctx:'You recently looked at property listings online.', rep:'ftc',
+  bestNote:'Report it at ReportFraud.ftc.gov and to your local consumer protection office.',
+  lesson:'Check property ownership with the official county or city records office. Never wire a deposit to a stranger.'};
+MSG.all={
+  scams:[...MSG.f0.scams, ...MSG.f1.scams, ...MSG.f2.scams],
+  legit:[...MSG.f0.legit, ...MSG.f1.legit, ...MSG.f2.legit],
+  bosses:[MSG.f1.boss, MSG.f0.boss, MSG.f2.boss, PARKER_BOSS]
+};
+const BOSS_CARDS = [
+ {name:'Kevin Mitnick', real:'Kevin Mitnick', years:'1963 to 2023',
+  card:'In the 1980s and 90s, Kevin Mitnick got into corporate and telephone systems mostly by talking to people: posing as coworkers and technicians to get passwords. He pleaded guilty to computer fraud in 1999. Later he became a security consultant who helped companies test their staff.',
+  cyber:'Social engineering targets people, not software. Hang up and call back on a number you already have before you share any code or password.'},
+ {name:'Frank Abagnale Jr.', real:'Frank Abagnale Jr.', years:'Born 1948',
+  card:'In the 1960s, Frank Abagnale Jr. posed as an airline pilot, doctor and lawyer and wrote bad checks across several countries. He was caught, served prison time, and later worked with banks and the FBI on fraud prevention. His life inspired the film Catch Me If You Can.',
+  cyber:'Impersonating authority is still the core of many scams. Payroll, bank and IT messages can all be faked. Verify through a channel you already trust.'},
+ {name:'Charles Ponzi', real:'Charles Ponzi', years:'1882 to 1949',
+  card:'In 1920, Charles Ponzi promised Boston investors huge returns in 45 days through international postal reply coupons. He paid early investors with money from newer ones instead of real profits. When it collapsed, his name became the word for this kind of scheme. He was convicted of fraud and died in poverty in Brazil in 1949.',
+  cyber:'Ponzi schemes need a constant supply of new victims. Ask where the returns actually come from, and look up any adviser on FINRA BrokerCheck or the SEC search tool.'},
+ {name:'George C. Parker', real:'George C. Parker', years:'Active in the early 1900s',
+  card:'George C. Parker was a New York con artist known for selling famous landmarks, such as the Brooklyn Bridge, to buyers who did not own them. His victims were often newcomers to the city. His schemes are still taught as classic examples of the confidence game.',
+  cyber:'Verify property ownership with official records, not with the seller. Never send a deposit by wire to someone you have not verified.'}
+];
+const FACTS = [
+ 'Phishing is consistently one of the most reported cybercrimes in the FBI\'s annual Internet Crime Report.',
+ 'Multifactor authentication blocks the vast majority of automated account-takeover attacks.',
+ 'In the US you can forward suspicious texts to 7726 (SPAM) so your carrier can filter similar messages.',
+ 'Caller ID can be spoofed, so a name or number on your screen does not prove who is calling.',
+ 'Attackers reuse passwords leaked in old breaches. A password manager gives every site a unique one.',
+ 'A legitimate company will never ask you for your MFA code. Anyone who does is a scammer.',
+ 'Lookalike domains often swap letters or characters, like "rn" for "m" or a zero for an "o".',
+ 'Gift card, crypto and wire payments are very hard to reverse, which is why scammers ask for them.',
+ '"Quishing" is phishing with QR codes. A QR code can hide any web address, so check it before you scan.',
+ 'Scammers use urgency on purpose. Real deadlines rarely punish you for taking a few minutes to check.',
+ 'You can report scams at ReportFraud.ftc.gov, and internet crime at ic3.gov.'
+];
+const REPORT = {
+ button:'Use the Report Phishing button in your work email, then delete the message',
+ sms:'Forward the text to 7726 (SPAM), mark it as junk, then delete it',
+ app:'Report and block the account inside the app',
+ ftc:'Report it at ReportFraud.ftc.gov',
+ it:'Stop, then alert your IT or security team using a contact you already know'
+};
+const ALT = {button:'ftc', sms:'ftc', app:'ftc', it:'button', ftc:'button'};
+const HARM = {
+ Email:['Reply and ask the sender if it\'s real','Click the link to see if the site looks right'],
+ Text:['Reply STOP so they quit texting you','Tap the link to check whether it\'s real'],
+ DM:['Message them back and ask for proof','Click their link to check it out'],
+ Call:['Call back the number they gave you','Stay on the line and ask more questions']
+};
+const CH_LABEL = {Email:'Email', Text:'Text message', DM:'Direct message', Call:'Phone call'};
+
+/* ======================= HELPERS ======================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pick = a => a[Math.floor(Math.random()*a.length)];
+const shuffle = a => { a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
+function plain(t){ return t ? t.split('\n').map(x => x ? `<span>${esc(x)}</span>` : '').join('<br>') : ''; }
+function parse(src, ctx){
+  if(!src) return '';
+  const re=/\[\[([\s\S]+?)\|\|([\s\S]+?)\]\]|\{\{(.+?)\|(.+?)(?:\|(.+?))?\}\}/g;
+  let out='', last=0, m;
+  while((m=re.exec(src))){
+    out+=plain(src.slice(last,m.index));
+    if(m[1]!==undefined){
+      const id=ctx.clues.length; ctx.clues.push({text:m[1],why:m[2]});
+      out+=`<span class="seg" data-clue="${id}">${esc(m[1])}</span>`;
+    } else {
+      let attr='';
+      if(m[5]){ const id=ctx.clues.length; ctx.clues.push({text:`${m[3]} → ${m[4]}`,why:m[5]}); attr=` data-clue="${id}"`; }
+      out+=`<span class="seg lnk" tabindex="0" role="button" data-url="${esc(m[4])}"${attr}>${esc(m[3])}</span>`;
+    }
+    last=re.lastIndex;
+  }
+  return out+plain(src.slice(last));
+}
+function initial(s){ const t=s.replace(/\[\[|\]\]|\|\|.*?(?=\]\]|$)/g,'').trim(); return esc((t.match(/[A-Za-z]/)||['?'])[0].toUpperCase()); }
+function renderMessage(m, ctx){
+  const from=parse(m.from,ctx), subj=parse(m.subj||'',ctx), body=parse(m.body,ctx), att=m.att?parse(m.att,ctx):'';
+  switch(m.ch){
+    case 'Email': return `<div class="mail"><div class="mail-bar">INBOX · just now</div><div class="mail-subj">${subj}</div><div class="mail-from"><div class="from">${from}</div><div class="to">to me</div></div><div class="mail-body">${body}</div>${att?`<div class="attach">${att}</div>`:''}</div>`;
+    case 'Text': return `<div class="phone"><div class="phone-head"><strong>${from}</strong>Text message</div><div class="bubble">${body}</div></div>`;
+    case 'DM': return `<div class="phone"><div class="phone-head"><strong>${from}</strong>${esc(m.app||'Direct message')}</div><div class="bubble dm">${body}</div></div>`;
+    case 'Call': return `<div class="call"><div class="call-id">${from}</div><div class="call-lab">Call transcript</div><div class="call-body">${body}</div></div>`;
+  }
+}
+
+/* sound: tiny synth blips, muted by default-free toggle is not needed for a simple game */
+let actx=null;
+function tone(f,d,type,v,f2){ try{
+  actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+  const t=actx.currentTime,o=actx.createOscillator(),g=actx.createGain();
+  o.type=type; o.frequency.setValueAtTime(f,t); if(f2) o.frequency.exponentialRampToValueAtTime(f2,t+d);
+  g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(.0008,t+d);
+  o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t+d+.02);
+}catch(e){} }
+const sfx={
+  blip(){tone(880,.06,'sine',.03,1250)}, clue(){tone(620,.12,'triangle',.05,980)},
+  good(){[523,659,784].forEach((f,i)=>setTimeout(()=>tone(f,.15,'sine',.04),i*80))},
+  bad(){tone(240,.35,'sawtooth',.04,100)}, hit(){tone(180,.3,'square',.035,90)},
+  ding(){tone(1046,.3,'sine',.04);setTimeout(()=>tone(1318,.35,'sine',.035),120)}
+};
+
+
+"use strict";
+/* ======================= WORLD SETTINGS ======================= */
+const VW=900, VH=540, WW=1600, WH=1000, WALL=14, DOOR=90;
+const SCOPE_R=60, SCAN_T=10, BLAST_RANGE=340, PURSUE_SP=112, PURSUE_MAX=3, GIVEUP_T=4, GIVEUP_D=380;
+const WALK=160, SPRINT=220, AIM_SP=280;
+const C={street:'#D6E1F5', grid:'#C3D2EE', bldg:'#F4F7FD', wall:'#1E3A8A', ink:'#1E3A8A', sky:'#60A5FA', violet:'#6D28D9',
+  danger:'#B91C1C', good:'#15803D', warn:'#B45309', white:'#FFFFFF', civ:'#9FB0D3', paper:'#FAFAFA'};
+const LEVELS=[{name:'Downtown Harborline',key:'all'}];
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* ======================= STATE ======================= */
+const cv=$('#c'), ov=$('#ov'), cx=ov.getContext('2d');
+let S={score:0,shields:3,caught:0,falseBlasts:0}, LV=0, blds=[], obs=[], targets=[], civs=[];
+let scan=null, lastTags={found:0,total:0}, plaques=[];
+let hov=null, hoverT=null, hoverTime=0, cool=0, beam=null, mode='title', cur=null, lastT=0, runClock=0;
+const P={x:0,y:0,r:12,inv:0};
+const cam={x:0,y:0};
+const ptr={x:VW/2,y:VH/2};
+const keys={};
+
+/* ======================= WORLD ======================= */
+function rectHit(x,y,r,R){ const nx=clamp(x,R[0],R[0]+R[2]), ny=clamp(y,R[1],R[1]+R[3]); return Math.hypot(x-nx,y-ny)<r; }
+function blocked(x,y,r){ if(x<r||x>WW-r||y<r||y>WH-r) return true; return obs.some(R=>rectHit(x,y,r,R)); }
+function moveSlide(o,dx,dy,r=14){
+  let moved=false; const nx=o.x+dx, ny=o.y+dy;
+  if(!blocked(nx,o.y,r)){ o.x=nx; moved=true; }
+  if(!blocked(o.x,ny,r)){ o.y=ny; moved=true; }
+  return moved;
+}
+function addWalls(b){
+  const seg=(a0,a1,fixed,horiz,gapOn)=>{
+    if(!gapOn){ obs.push(horiz?[a0,fixed,a1-a0,WALL]:[fixed,a0,WALL,a1-a0]); return; }
+    const c=(a0+a1)/2, e0=c-DOOR/2, s1=c+DOOR/2;
+    if(horiz) obs.push([a0,fixed,e0-a0,WALL],[s1,fixed,a1-s1,WALL]);
+    else obs.push([fixed,a0,WALL,e0-a0],[fixed,s1,WALL,a1-s1]);
+  };
+  seg(b.x,b.x+b.w,b.y,true,b.door==='top');
+  seg(b.x,b.x+b.w,b.y+b.h-WALL,true,b.door==='bottom');
+  seg(b.y,b.y+b.h,b.x,false,b.door==='left');
+  seg(b.y,b.y+b.h,b.x+b.w-WALL,false,b.door==='right');
+}
+function doorPoint(b){
+  if(b.door==='top') return {x:b.x+b.w/2,y:b.y};
+  if(b.door==='bottom') return {x:b.x+b.w/2,y:b.y+b.h};
+  if(b.door==='left') return {x:b.x,y:b.y+b.h/2};
+  return {x:b.x+b.w,y:b.y+b.h/2};
+}
+function genCity(){
+  obs=[]; blds=[];
+  const bw=360, bh=300, gx=80, gy=120, ox=90, oy=140;
+  for(let r=0;r<2;r++) for(let c=0;c<3;c++){
+    const b={x:ox+c*(bw+gx), y:oy+r*(bh+gy), w:bw, h:bh, door: r===0?'bottom':'top'};
+    blds.push(b); addWalls(b);
+  }
+  // one desk per room, kept away from the door
+  blds.forEach(b=>{
+    for(let k=0;k<30;k++){
+      const d={x:rnd(b.x+40,b.x+b.w-110), y:rnd(b.y+40,b.y+b.h-70), w:70, h:26};
+      const dp=doorPoint(b);
+      if(Math.hypot(d.x+35-dp.x,d.y+13-dp.y)<110) continue;
+      obs.push([d.x,d.y,d.w,d.h]); break;
+    }
+  });
+  // crates and cars out on the streets
+  const inBld=(x,y)=>blds.some(b=>x>b.x-25&&x<b.x+b.w+25&&y>b.y-25&&y<b.y+b.h+25);
+  let placed=0;
+  for(let k=0;k<1500&&placed<10;k++){
+    const x=rnd(40,WW-80), y=rnd(40,WH-80);
+    if(inBld(x,y)) continue;
+    const R=[x,y,40,40];
+    const overlaps=O=>x<O[0]+O[2]+6 && x+40>O[0]-6 && y<O[1]+O[3]+6 && y+40>O[1]-6;
+    if(obs.some(overlaps)) continue;
+    obs.push(R); placed++;
+  }
+}
+function spotIn(b){
+  for(let k=0;k<200;k++){ const x=rnd(b.x+30,b.x+b.w-30), y=rnd(b.y+30,b.y+b.h-30); if(!blocked(x,y,22)) return {x,y}; }
+  return {x:b.x+b.w/2, y:b.y+b.h/2};
+}
+function spotFree(far=0){
+  for(let k=0;k<400;k++){ const x=rnd(40,WW-40), y=rnd(40,WH-40); if(blocked(x,y,22)) continue; if(Math.hypot(x-P.x,y-P.y)<far) continue; return {x,y}; }
+  return {x:80,y:80};
+}
+// quick ID: the first red flag for scams, the context line for genuine contacts
+function quickID(m){
+  const src=(m.from||'')+' '+(m.body||'');
+  const hit=/\[\[[^\[]*?\|\|([^\]]+)\]\]/.exec(src);
+  return hit? hit[1] : (m.ctx||'');
+}
+function plainText(s){ return (s||'').replace(/\[\[(.+?)\|\|[\s\S]+?\]\]/g,'$1').replace(/\{\{(.+?)\|.+?\}\}/g,'$1').replace(/[<>]/g,''); }
+function wrapText(text,maxChars,maxLines){
+  const words=text.split(' '), lines=[]; let line='';
+  words.forEach(w=>{ if((line+' '+w).trim().length>maxChars){ lines.push(line.trim()); line=w; } else line+=' '+w; });
+  if(line.trim()) lines.push(line.trim());
+  if(lines.length>maxLines){ lines.length=maxLines; lines[maxLines-1]=lines[maxLines-1].slice(0,maxChars-1)+'…'; }
+  return lines;
+}
+
+/* ======================= LEVELS ======================= */
+function mkTarget(m,kind,boss,inBuilding){
+  let p;
+  do{ p = inBuilding ? spotIn(pick(blds)) : spotFree(); } while(Math.hypot(p.x-P.x,p.y-P.y)<260);
+  return {x:p.x,y:p.y,hx:p.x,hy:p.y,tx:p.x,ty:p.y,tt:0,m,kind,boss,state:'idle',look:0,giveUp:0,id:quickID(m)};
+}
+function startLevel(i){
+  LV=i; genCity(); buildWorld(); clearGroup(actors);
+  const M=MSG[LEVELS[i].key];
+  const home=pick(blds);
+  P.x=home.x+home.w/2; P.y=home.y+home.h/2; P.inv=2;
+  cool=0; beam=null; hov=null; hoverT=null; hoverTime=0;
+  const list=shuffle([...M.scams.map(m=>({m,kind:'scam'})), ...M.legit.map(m=>({m,kind:'legit'}))]);
+  targets=list.map((o,k)=>mkTarget(o.m,o.kind,false,k%2===0));
+  M.bosses.forEach(b=>targets.push(mkTarget(b,'boss',true,true)));
+  civs=Array.from({length:8},()=>{ const p=spotFree(0); return {x:p.x,y:p.y,vx:0,vy:0,t:0}; });
+  plaques=shuffle(FACTS).slice(0,8).map(f=>{ const p=spotFree(0); return {x:p.x,y:p.y,text:f,read:false}; });
+  civs.forEach(c=>{ c.mesh=makePerson(COL.civ); c.mesh.scale.set(.8,.8,.8); actors.add(c.mesh); });
+  plaques.forEach(p=>{ p.mesh=new THREE.Mesh(new THREE.BoxGeometry(18,14,3), new THREE.MeshLambertMaterial({color:COL.brass})); p.mesh.position.set(p.x,7,p.y); actors.add(p.mesh); });
+  cam.x=clamp(P.x-VW/2,0,WW-VW); cam.y=clamp(P.y-VH/2,0,WH-VH);
+  mode='play';
+  toast(`${LEVELS[i].name}. You're inside a building. Find the way out and locate your targets.`);
+  updateHUD();
+}
+function transitionTo(i){
+  mode='modal';
+  $('#fadeT').textContent=`Next: ${LEVELS[i].name}`;
+  $('#fade').hidden=false;
+  setTimeout(()=>{ $('#fade').hidden=true; startLevel(i); lastT=performance.now(); },1600);
+}
+
+/* ======================= UPDATE ======================= */
+function update(dt){
+  // player
+  let ix=0, iy=0;
+  if(keys.KeyW||keys.ArrowUp) iy--; if(keys.KeyS||keys.ArrowDown) iy++;
+  if(keys.KeyA||keys.ArrowLeft) ix--; if(keys.KeyD||keys.ArrowRight) ix++;
+  if(ix||iy){
+    const l=Math.hypot(ix,iy), sp=(keys.ShiftLeft||keys.ShiftRight)?SPRINT:WALK;
+    moveSlide(P,ix/l*sp*dt,iy/l*sp*dt,P.r);
+  }
+  // scope keyboard aiming
+  let ax=0, ay=0;
+  if(keys.KeyJ) ax--; if(keys.KeyL) ax++; if(keys.KeyI) ay--; if(keys.KeyK) ay++;
+  ptr.x=clamp(ptr.x+ax*AIM_SP*dt,0,VW); ptr.y=clamp(ptr.y+ay*AIM_SP*dt,0,VH);
+  P.inv=Math.max(0,P.inv-dt); cool=Math.max(0,cool-dt);
+  if(beam){ beam.t-=dt; if(beam.t<=0) beam=null; }
+  runClock+=dt;
+  cam.x=clamp(P.x-VW/2,0,WW-VW); cam.y=clamp(P.y-VH/2,0,WH-VH);
+
+  // scope: the contact under the lens shows a quick ID
+  const _a=aimPos(), wx=_a.x, wy=_a.y;
+  hov=null; let bd=SCOPE_R;
+  targets.forEach(t=>{ if(t.state==='caught') return; const d=Math.hypot(t.x-wx,t.y-wy); if(d<bd){ bd=d; hov=t; } });
+  // an active probe counts down; if it runs out, the contact spots it and pursues you
+  if(scan){
+    scan.time-=dt; scan.t.look=Math.max(0,scan.time/SCAN_T);
+    if(scan.time<=0){ const t=scan.t; endScan(); startPursuit(t); }
+  }
+
+  // contacts
+  targets.forEach(t=>{
+    if(t.state==='caught'||t.state==='safe') return;
+    if(t.state==='pursue'){
+      const d=Math.hypot(P.x-t.x,P.y-t.y);
+      if(d>GIVEUP_D){ t.giveUp+=dt; if(t.giveUp>GIVEUP_T) calmDown(t); } else t.giveUp=0;
+      const dd=Math.max(d,1);
+      moveSlide(t,(P.x-t.x)/dd*PURSUE_SP*dt,(P.y-t.y)/dd*PURSUE_SP*dt);
+      if(t.state==='pursue' && d<22 && P.inv<=0){ loseShield('A pursuer caught up with you!'); calmDown(t); }
+    } else {
+      t.tt-=dt;
+      if(t.tt<=0 || Math.hypot(t.tx-t.x,t.ty-t.y)<4){ const a=rnd(0,6.283), r=rnd(10,70); t.tx=t.hx+Math.cos(a)*r; t.ty=t.hy+Math.sin(a)*r; t.tt=rnd(2,5); }
+      const ex=t.tx-t.x, ey=t.ty-t.y, dd=Math.max(Math.hypot(ex,ey),1);
+      if(!moveSlide(t,ex/dd*20*dt,ey/dd*20*dt)) t.tt=0;
+    }
+  });
+  if(mode!=='play') return;
+
+  plaques.forEach(p=>{ if(!p.read && Math.hypot(p.x-P.x,p.y-P.y)<40){ p.read=true; toast('Plaque: '+p.text,'good',7000); sfx.clue(); } });
+  civs.forEach(c=>{ c.t-=dt; if(c.t<=0){ const a=rnd(0,6.283); c.vx=Math.cos(a)*25; c.vy=Math.sin(a)*25; c.t=rnd(1,3); }
+    if(!moveSlide(c,c.vx*dt,c.vy*dt,8)) c.t=0; });
+  updateHUD();
+}
+function calmDown(t){ t.state='idle'; t.giveUp=0; t.look=0; t.tx=t.hx; t.ty=t.hy; }
+function startPursuit(t){
+  if(targets.filter(x=>x.state==='pursue').length>=PURSUE_MAX){ toast('Too many pursuers. Break away from them first.','warn'); return; }
+  t.state='pursue'; t.giveUp=0; sfx.hit();
+  toast(`${t.boss?t.m.name:'A contact'} spotted the probe and is pursuing you. Break away!`,'bad');
+}
+function loseShield(why){
+  if(P.inv>0 || mode!=='play') return;
+  S.shields--; P.inv=2; sfx.hit();
+  toast(`${why} Shield lost.`,'bad');
+  updateHUD();
+  if(S.shields<=0) endGame(false);
+}
+
+/* ======================= BLAST & VERDICT ======================= */
+function blast(){
+  if(mode!=='play' || !scan || cool>0) return;
+  const tgt=scan.t;
+  if(Math.hypot(tgt.x-P.x,tgt.y-P.y)>BLAST_RANGE){ toast('Out of blaster range. Get closer.','warn'); return; }
+  lastTags={found:scan.found.size, total:scan.clues.length};
+  endScan();
+  cool=.4; beam={x1:P.x,y1:P.y,x2:tgt.x,y2:tgt.y,t:.25};
+  const correct = tgt.kind!=='legit';
+  if(correct){ tgt.state='caught'; S.score+=(tgt.boss?300:100); S.caught++; sfx.good(); }
+  else { S.shields--; S.falseBlasts++; sfx.bad(); }
+  updateHUD();
+  showVerdict(tgt,correct);
+}
+// probe: click a contact to start scanning their message
+function startScan(t){
+  if(mode!=='play') return;
+  if(scan){ toast('Finish or close your current probe first.','warn'); return; }
+  if(t.state==='caught') return;
+  if(t.state==='safe'){ toast('Already marked safe. The probe will leave them alone.'); return; }
+  if(Math.hypot(t.x-P.x,t.y-P.y)>BLAST_RANGE){ toast('Out of probe range. Get closer.','warn'); return; }
+  const ctx={clues:[]};
+  $('#scanBody').innerHTML=renderMessage(t.m,ctx);
+  scan={t, clues:ctx.clues, found:new Set(), time:SCAN_T};
+  $('#scanCount').textContent=`Tagged 0 of ${ctx.clues.length}`;
+  $('#scan').hidden=false;
+  toast('Probe on. Tag every suspicious part, then blast before time runs out.');
+  sfx.blip();
+}
+function startScanAtScope(){
+  if(mode!=='play') return;
+  const _a=aimPos(), wx=_a.x, wy=_a.y; let tgt=null, bd=SCOPE_R*1.4;
+  targets.forEach(t=>{ if(t.state==='caught') return; const d=Math.hypot(t.x-wx,t.y-wy); if(d<bd){ bd=d; tgt=t; } });
+  if(!tgt){ toast('Nothing in the scope.'); return; }
+  startScan(tgt);
+}
+function endScan(){
+  if(scan){ scan.t.look=0; }
+  scan=null; $('#scan').hidden=true;
+}
+$('#scanBody').addEventListener('click',e=>{
+  if(!scan) return;
+  const el=e.target.closest('[data-clue]');
+  if(!el){ const seg=e.target.closest('.seg'); if(seg){ seg.classList.remove('nope'); void seg.offsetWidth; seg.classList.add('nope'); } return; }
+  const id=+el.dataset.clue;
+  if(scan.found.has(id)) return;
+  scan.found.add(id); el.classList.add('tagged'); sfx.clue();
+  S.score+=25; updateHUD(); toast('Red flag tagged: +25 points','good');
+  $('#scanCount').textContent=`Tagged ${scan.found.size} of ${scan.clues.length}`;
+});
+$('#scanBlast').addEventListener('click',()=>blast());
+// Mark safe: clear a genuine contact so the probe never flags them; a scammer slips away and costs a shield
+function markSafe(){
+  if(mode!=='play' || !scan) return;
+  const t=scan.t;
+  endScan();
+  if(t.kind==='legit'){
+    t.state='safe'; S.score+=50; sfx.good();
+    toast('Marked safe. The probe will never flag them.','good');
+  } else {
+    S.shields--; S.falseSafe=(S.falseSafe||0)+1; sfx.bad();
+    toast('That was a scammer. Marking them safe let them slip away. Shield lost.','bad',5000);
+  }
+  updateHUD();
+  if(S.shields<=0){ endGame(false); }
+}
+$('#scanSafe').addEventListener('click',markSafe);
+$('#scanClose').addEventListener('click',()=>{ endScan(); toast('Probe closed. The contact did not notice.'); });
+
+function showVerdict(t,correct){
+  mode='modal'; cur={t,correct};
+  const ctx={clues:[]};
+  const html=renderMessage(t.m,ctx);
+  $('#vChannel').textContent=CH_LABEL[t.m.ch];
+  $('#vBoss').hidden=!t.boss;
+  $('#vBody').innerHTML=html;
+  const head = !correct ? 'Genuine contact blasted' : (t.boss?`${t.m.name} stopped`:'Scam stopped');
+  const txt = correct
+    ? `<p>The right move: <b>${esc(t.m.bestNote||REPORT[t.m.rep])}</b>.</p>`
+    : `<p>This contact was genuine, so blasting them cost you a shield. Scan longer before you fire.</p>`;
+  const vh=$('#vHead'); vh.className='verdict '+(correct?'good':'bad');
+  vh.innerHTML=`<h4>${head}<span>${correct?'+'+(t.boss?300:100):'−1 shield'}</span></h4>${txt}<p class="lesson">${esc(t.m.lesson)}</p>`;
+  const tagLine = correct ? `<p>You tagged ${lastTags.found} of ${lastTags.total} red flags.</p>` : '';
+  $('#vFlags').innerHTML = tagLine + (correct && ctx.clues.length
+    ? `<h3>Red flags</h3><ul class="spotted">${ctx.clues.map(c=>`<li><strong>${esc(c.text)}</strong><br>${esc(c.why)}</li>`).join('')}</ul>` : '');
+  $('#vFact').innerHTML = `<div class="cyber"><b>Did you know?</b>${esc(pick(FACTS))}</div>`;
+  $('#verdict').hidden=false;
+  setTimeout(()=>$('#vContinue').focus({preventScroll:true}),30);
+}
+$('#vContinue').addEventListener('click',()=>{
+  const {t,correct}=cur; $('#verdict').hidden=true; cur=null;
+  if(S.shields<=0){ endGame(false); return; }
+  if(t.boss && correct){ showBossCard(t); return; }
+  afterCard();
+});
+function showBossCard(t){
+  mode='modal';
+  const bc=BOSS_CARDS.find(b=>b.name===t.m.name)||BOSS_CARDS[0];
+  $('#fTitle').textContent=t.m.name;
+  $('#fBody').innerHTML=`<div class="card-fact"><div class="eyebrow">Inspired by ${esc(bc.real)} (${esc(bc.years)})</div><p>${esc(bc.card)}</p></div><div class="cyber"><b>Cybersecurity lesson</b>${esc(bc.cyber)}</div><p class="note">This card describes a real public case. The boss in the game is a fictional stand-in for that scam type.</p>`;
+  $('#fact').hidden=false;
+  setTimeout(()=>$('#fContinue').focus({preventScroll:true}),30);
+  sfx.ding();
+}
+$('#fContinue').addEventListener('click',()=>{ $('#fact').hidden=true; afterCard(); });
+function afterCard(){
+  if(S.shields<=0){ endGame(false); return; }
+  const remaining=targets.filter(t=>t.kind!=='legit' && t.state!=='caught').length;
+  if(remaining===0){
+    if(LV>=LEVELS.length-1){ endGame(true); return; }
+    transitionTo(LV+1); return;
+  }
+  mode='play'; lastT=performance.now();
+}
+
+/* ======================= HUD / TOAST / END ======================= */
+function updateHUD(){
+  const left=targets.filter(t=>t.kind!=='legit' && t.state!=='caught').length;
+  const pursuing=targets.filter(t=>t.state==='pursue').length;
+  $('#hLevel').textContent=LEVELS[LV].name;
+  $('#hLeft').textContent=left;
+  $('#hPursue').textContent=`${pursuing} / ${PURSUE_MAX}`;
+  $('#hScore').textContent=S.score.toLocaleString();
+  $('#hShields').innerHTML=[0,1,2].map(i=>`<svg viewBox="0 0 16 18" aria-hidden="true"><path d="M8 1 L15 4 V9 C15 13 12 16 8 17 C4 16 1 13 1 9 V4 Z" fill="${i<S.shields?'#60A5FA':'none'}" stroke="#60A5FA" stroke-width="1.5"/></svg>`).join('');
+  const h=$('#hint');
+  if(mode!=='play'){ h.hidden=true; return; }
+  h.hidden=false;
+  if(scan){ h.textContent='Probe on. Tag the red flags, then blast (Space).'; h.className=''; $('#scanTime').textContent=Math.ceil(scan.time)+'s'; $('#scanBar').style.width=(scan.time/SCAN_T*100)+'%'; }
+  else if(pursuing){ h.textContent='Pursued! Get out of range to lose them.'; h.className='alert'; }
+  else if(hov && hov.state==='idle'){ h.textContent='Hold steady to trace them. Click to blast.'; h.className=''; }
+  else if(hov){ h.textContent='Genuine contact in your scope. Click only on scammers.'; h.className=''; }
+  else { h.textContent='WASD to move, Shift to sprint. Aim the scope with the mouse.'; h.className=''; }
+}
+let toastT;
+function toast(msg,kind='',ms=3800){ const t=$('#toast'); t.textContent=msg; t.className='show '+kind; clearTimeout(toastT); toastT=setTimeout(()=>t.className=kind,ms); }
+
+function endGame(win){
+  mode='over'; cur=null;
+  $('#verdict').hidden=true; $('#fact').hidden=true;
+  const secs=Math.round(runClock), mm=Math.floor(secs/60), ss=String(secs%60).padStart(2,'0');
+  let best=0; try{ best=+localStorage.getItem('specterBest')||0; if(S.score>best) localStorage.setItem('specterBest',String(S.score)); }catch(e){}
+  $('#eEyebrow').textContent=win?'Mission complete':'Shields down';
+  $('#eTitle').textContent=win?'The scam ring is shut down':'The scammers got through';
+  $('#eBody').textContent=win
+    ? 'You cleared the district and beat all four bosses. Looking carefully before you act, and not blasting genuine contacts, is what keeps people safe.'
+    : `You lost all three shields in ${LEVELS[LV].name}. Scan longer before you fire, and break away when you're pursued.`;
+  $('#eStats').innerHTML=[
+    [S.score.toLocaleString(),'Score'+(win&&S.score>best?' · new best':'')],[`${mm}:${ss}`,'Time'],
+    [S.caught,'Scams stopped'],[S.falseBlasts,'Genuine blasted'],[targets.filter(t=>t.boss&&t.state==='caught').length+'/'+targets.filter(t=>t.boss).length,'Bosses beaten']
+  ].map(([b,l])=>`<div><b>${b}</b><span>${l}</span></div>`).join('');
+  $('#end').hidden=false;
+  setTimeout(()=>$('#btnRestart').focus({preventScroll:true}),30);
+  win?sfx.ding():sfx.bad();
+}
+function startRun(){
+  endScan();
+  S={score:0,shields:3,caught:0,falseBlasts:0}; runClock=0; transitionFlag=false;
+  $('#title').hidden=true; $('#end').hidden=true; $('#verdict').hidden=true; $('#fact').hidden=true; $('#fade').hidden=true;
+  startLevel(0); lastT=performance.now();
+}
+let transitionFlag=false;
+$('#btnStart').addEventListener('click',()=>{ sfx.blip(); $('#title').hidden=true; $('#tut').hidden=false; setTimeout(()=>$('#tutGo').focus({preventScroll:true}),30); });
+$('#tutGo').addEventListener('click',()=>{ $('#tut').hidden=true; startRun(); });
+$('#btnRestart').addEventListener('click',()=>{ startRun(); });
+$('#btnTitle').addEventListener('click',()=>{ $('#end').hidden=true; mode='title'; $('#title').hidden=false; updateHUD(); });
+
+/* ======================= INPUT ======================= */
+window.addEventListener('keydown',e=>{
+  if(e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
+  keys[e.code]=true;
+  if(e.code==='Space' && !e.repeat) blast();
+  if(e.code==='KeyE' && !e.repeat) startScanAtScope();
+});
+window.addEventListener('keyup',e=>{ keys[e.code]=false; });
+window.addEventListener('blur',()=>{ for(const k in keys) keys[k]=false; });
+function aimFrom(e){
+  const r=ov.getBoundingClientRect();
+  ptr.x=clamp((e.clientX-r.left)*VW/r.width,0,VW); ptr.y=clamp((e.clientY-r.top)*VH/r.height,0,VH);
+}
+ov.addEventListener('pointermove',e=>{ aimFrom(e); });
+ov.addEventListener('pointerdown',e=>{ aimFrom(e); startScanAtScope(); });
+
+/* ======================= 3D WORLD ======================= */
+const COL={street:0xD6E1F5, bldg:0xF4F7FD, wall:0x1E3A8A, ink:0x1E3A8A, sky:0x60A5FA, violet:0x6D28D9,
+  danger:0xB91C1C, good:0x15803D, warn:0xB45309, white:0xFFFFFF, civ:0x9FB0D3, crate:0x9FB4E0, brass:0xB45309, skin:0xE8C7A8};
+const INSET=170;
+const C2={ink:'#1E3A8A', sky:'#60A5FA', violet:'#6D28D9', danger:'#B91C1C', white:'#FFFFFF'};
+const renderer=new THREE.WebGLRenderer({canvas:cv, antialias:true});
+renderer.setPixelRatio(1); renderer.setSize(VW,VH,false);
+renderer.setClearColor(0xFAFAFA,1);
+const scene=new THREE.Scene();
+scene.add(new THREE.HemisphereLight(0xffffff,0x8093b8,0.95));
+const sun=new THREE.DirectionalLight(0xffffff,0.45); sun.position.set(200,400,150); scene.add(sun);
+const cam3=new THREE.PerspectiveCamera(50,VW/VH,1,3000);
+const zoomCam=new THREE.PerspectiveCamera(26,1,1,3000);
+const world=new THREE.Group(); scene.add(world);
+const actors=new THREE.Group(); scene.add(actors);
+const beamLine=new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({color:COL.sky}));
+beamLine.visible=false; scene.add(beamLine);
+let playerMesh=null;
+function clearGroup(g){ while(g.children.length) g.remove(g.children[0]); }
+function buildWorld(){
+  clearGroup(world);
+  const ground=new THREE.Mesh(new THREE.PlaneGeometry(WW,WH), new THREE.MeshLambertMaterial({color:COL.street}));
+  ground.rotation.x=-Math.PI/2; ground.position.set(WW/2,0,WH/2); world.add(ground);
+  blds.forEach(b=>{
+    const f=new THREE.Mesh(new THREE.PlaneGeometry(b.w,b.h), new THREE.MeshLambertMaterial({color:COL.bldg}));
+    f.rotation.x=-Math.PI/2; f.position.set(b.x+b.w/2,0.4,b.y+b.h/2); world.add(f);
+  });
+  obs.forEach(R=>{
+    const thin=Math.min(R[2],R[3])<=20;
+    const h=thin?36:(R[2]===40?30:22);
+    const m=new THREE.Mesh(new THREE.BoxGeometry(R[2],h,R[3]), new THREE.MeshLambertMaterial({color:thin?COL.wall:COL.crate}));
+    m.position.set(R[0]+R[2]/2,h/2,R[1]+R[3]/2); world.add(m);
+  });
+}
+function makePerson(color){
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(8,9,22,14), new THREE.MeshLambertMaterial({color}));
+  body.position.y=11; g.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(6,14,10), new THREE.MeshLambertMaterial({color:COL.skin}));
+  head.position.y=27; g.add(head);
+  const ring=new THREE.Mesh(new THREE.RingGeometry(13,16,36), new THREE.MeshBasicMaterial({color:COL.sky,side:THREE.DoubleSide}));
+  ring.rotation.x=-Math.PI/2; ring.position.y=0.6; g.add(ring);
+  g.userData={body:body.material, ring:ring, prog:null};
+  return g;
+}
+function ensureTargetMesh(t){
+  if(t.mesh) return;
+  t.mesh=makePerson(COL.ink);
+  actors.add(t.mesh);
+}
+// aim: where the pointer lands on the ground, as world x and z (z is the old y)
+const _ray=new THREE.Raycaster(), _pl=new THREE.Plane(new THREE.Vector3(0,1,0),0), _v=new THREE.Vector2(), _hit=new THREE.Vector3();
+function aimPos(){
+  _v.set(ptr.x/VW*2-1, -(ptr.y/VH)*2+1);
+  _ray.setFromCamera(_v,cam3);
+  if(_ray.ray.intersectPlane(_pl,_hit)) return {x:_hit.x,y:_hit.z};
+  return {x:P.x,y:P.y};
+}
+function sync3D(now){
+  if(!playerMesh){ playerMesh=makePerson(COL.violet); scene.add(playerMesh); }
+  playerMesh.position.set(P.x,0,P.y);
+  playerMesh.userData.body.color.setHex(P.inv>0 && Math.floor(now/120)%2===0 ? COL.white : COL.violet);
+  targets.forEach(t=>{
+    ensureTargetMesh(t);
+    const m=t.mesh, u=m.userData;
+    m.position.set(t.x,0,t.y);
+    if(t.state==='caught'){
+      u.body.color.setHex(COL.good); u.body.transparent=true; u.body.opacity=.35; u.ring.visible=false;
+    } else if(t.state==='safe'){
+      u.body.color.setHex(COL.ink); u.body.transparent=true; u.body.opacity=.5; u.ring.visible=false;
+    } else {
+      const pursuing=t.state==='pursue';
+      u.body.color.setHex(pursuing?COL.danger:COL.ink); u.body.transparent=false; u.body.opacity=1;
+      u.ring.visible=true; u.ring.material.color.setHex(pursuing?COL.danger:COL.sky);
+      u.ring.scale.setScalar(pursuing?1+Math.sin(now/120)*.08:1);
+    }
+    // probe progress ring around the contact being scanned
+    const show = scan && scan.t===t && t.look>0 && t.state==='idle';
+    if(show){
+      if(!u.prog){
+        u.prog=new THREE.Mesh(new THREE.RingGeometry(19,22,40,1,0,1), new THREE.MeshBasicMaterial({color:COL.warn,side:THREE.DoubleSide}));
+        u.prog.rotation.x=-Math.PI/2; u.prog.position.y=0.8; m.add(u.prog);
+      }
+      u.prog.geometry.dispose();
+      u.prog.geometry=new THREE.RingGeometry(19,22,40,1,-Math.PI/2,Math.max(.01,t.look)*Math.PI*2);
+      u.prog.visible=true;
+    } else if(u.prog){ u.prog.visible=false; }
+  });
+  civs.forEach(c=>{ if(c.mesh) c.mesh.position.set(c.x,0,c.y); });
+  plaques.forEach(p=>{ if(p.mesh){ p.mesh.material.transparent=true; p.mesh.material.opacity=p.read?.4:1; } });
+  if(beam){
+    beamLine.geometry.setFromPoints([new THREE.Vector3(beam.x1,16,beam.y1), new THREE.Vector3(beam.x2,16,beam.y2)]);
+    beamLine.visible=true;
+  } else beamLine.visible=false;
+  // main camera: above and behind you
+  cam3.position.set(P.x, 380, P.y+260);
+  cam3.lookAt(P.x, 0, P.y);
+}
+function renderFrame(now){
+  sync3D(now);
+  renderer.setScissorTest(false);
+  renderer.setViewport(0,0,VW,VH);
+  renderer.render(scene,cam3);
+  // magnified scope: a closer view of the spot under the pointer
+  const a=aimPos();
+  zoomCam.position.set(a.x,150,a.y+100); zoomCam.lookAt(a.x,0,a.y);
+  const x0=clamp(ptr.x-INSET/2,0,VW-INSET), y0=clamp(ptr.y-INSET/2,0,VH-INSET), gy=VH-y0-INSET;
+  renderer.setScissorTest(true); renderer.setScissor(x0,gy,INSET,INSET);
+  renderer.setViewport(x0,gy,INSET,INSET);
+  renderer.render(scene,zoomCam);
+  renderer.setScissorTest(false); renderer.setViewport(0,0,VW,VH);
+}
+// 2D overlay: scope frame, crosshair and quick ID card
+function drawOverlay(){
+  cx.clearRect(0,0,VW,VH);
+  if(mode==='title') return;
+  const x0=clamp(ptr.x-INSET/2,0,VW-INSET), y0=clamp(ptr.y-INSET/2,0,VH-INSET);
+  cx.strokeStyle=C2.ink; cx.lineWidth=3; cx.strokeRect(x0,y0,INSET,INSET);
+  cx.strokeStyle=C2.sky; cx.lineWidth=1; cx.strokeRect(x0+4,y0+4,INSET-8,INSET-8);
+  const sx=x0+INSET/2, sy=y0+INSET/2;
+  cx.strokeStyle=C2.ink; cx.beginPath();
+  cx.moveTo(sx-10,sy); cx.lineTo(sx+10,sy); cx.moveTo(sx,sy-10); cx.lineTo(sx,sy+10); cx.stroke();
+  if(hov && hov.state!=='caught'){
+    const idLines=wrapText(plainText(hov.id)||'No detail yet',40,2);
+    const status = hov.state==='pursue' ? 'PURSUING YOU' : 'Quick ID';
+    const w=250, h=18+14*idLines.length+34;
+    let bx=x0+INSET+12; if(bx+w>VW-8) bx=x0-12-w; if(bx<8) bx=8;
+    const by=clamp(sy-h/2,8,VH-h-8);
+    cx.fillStyle=C2.white; cx.strokeStyle=C2.ink; cx.lineWidth=2;
+    cx.beginPath(); cx.rect(bx,by,w,h); cx.fill(); cx.stroke();
+    cx.textAlign='left'; cx.font='600 12px system-ui,sans-serif'; cx.fillStyle=C2.ink;
+    cx.fillText(`${CH_LABEL[hov.m.ch]} · ${plainText(hov.m.from).slice(0,34)}`,bx+10,by+18);
+    cx.font='12px system-ui,sans-serif'; cx.fillStyle='#1b2130';
+    idLines.forEach((l,i)=>cx.fillText(l,bx+10,by+34+i*14));
+    cx.font='bold 10px monospace'; cx.fillStyle=hov.state==='pursue'?C2.danger:C2.violet;
+    cx.fillText(status,bx+10,by+h-10);
+  }
+}
+
+/* ======================= LOOP & BOOT ======================= */
+function frame(now){
+  const dt=Math.min(.05,(now-(lastT||now))/1000); lastT=now;
+  if(mode==='play') update(dt);
+  renderFrame(now);
+  drawOverlay();
+  requestAnimationFrame(frame);
+}
+// build the city behind the title card, with the player in a random building
+genCity(); buildWorld();
+{ const home=pick(blds); P.x=home.x+home.w/2; P.y=home.y+home.h/2; }
+targets=[]; civs=[];
+mode='title';
+updateHUD();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
