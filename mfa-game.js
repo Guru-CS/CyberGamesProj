@@ -3,7 +3,8 @@
 
   const WIDTH = 960;
   const HEIGHT = 480;
-  const WORLD_WIDTH = 1940;
+  const WORLD_WIDTH = 2100;
+  const VAULT_X = 1980;
   const GRAVITY = 0.62;
   const JUMP_SPEED = -12.4;
   const MOVE_SPEED = 4.1;
@@ -16,7 +17,10 @@
     root.innerHTML = `
       <section class="lu-game-frame" aria-label="Layer Up platform game">
         <div class="lu-game-bar">
-          <span class="lu-vault-status" data-vault-status>Vault exposed</span>
+          <div class="lu-security-status">
+            <span class="lu-vault-status" data-vault-status>MFA setup 0/3 · vault exposed</span>
+            <progress class="lu-progress" data-mfa-progress max="3" value="0" aria-label="MFA setup progress"></progress>
+          </div>
           <button class="lu-reset" type="button" data-reset>Reset level</button>
         </div>
         <div class="lu-canvas-wrap">
@@ -25,12 +29,21 @@
         <div class="lu-lower-panel">
           <div class="lu-objective">
             <h2>Mission</h2>
-            <p data-message aria-live="polite">Collect the three MFA setup signals, then reach the vault.</p>
+            <p data-message aria-live="polite">Secure the account: enable MFA, add a second factor, then save recovery codes.</p>
             <ul class="lu-collectibles" aria-label="MFA setup signals">
-              <li data-token-label="0">Turn on MFA</li>
-              <li data-token-label="1">Add a second factor</li>
-              <li data-token-label="2">Save recovery codes</li>
+              <li data-token-label="0"><span class="lu-step-index">01</span><span>Enable MFA</span></li>
+              <li data-token-label="1"><span class="lu-step-index">02</span><span>Add a second factor</span></li>
+              <li data-token-label="2"><span class="lu-step-index">03</span><span>Store recovery codes</span></li>
             </ul>
+            <section class="lu-quiz" data-quiz aria-labelledby="lu-quiz-title" hidden>
+              <h3 id="lu-quiz-title">Quick MFA check</h3>
+              <p class="lu-quiz-question">Why does MFA help protect an account?</p>
+              <div class="lu-quiz-options">
+                <button type="button" data-quiz-answer="correct">It requires another verification step beyond the password.</button>
+                <button type="button" data-quiz-answer="wrong">It makes your password impossible to steal.</button>
+              </div>
+              <p class="lu-quiz-feedback" data-quiz-feedback aria-live="polite"></p>
+            </section>
           </div>
           <div class="lu-action-side">
             <button class="lu-run-button" type="button" data-run>Start run</button>
@@ -51,38 +64,56 @@
     const srStatus = root.querySelector("[data-sr-status]");
     const runButton = root.querySelector("[data-run]");
     const vaultStatus = root.querySelector("[data-vault-status]");
+    const mfaProgress = root.querySelector("[data-mfa-progress]");
+    const quiz = root.querySelector("[data-quiz]");
+    const quizFeedback = root.querySelector("[data-quiz-feedback]");
     const tokenLabels = [...root.querySelectorAll("[data-token-label]")];
     const keys = new Set();
+    const sprites = {
+      idle: { image: new Image(), frames: 4, duration: 180 },
+      walk: { image: new Image(), frames: 6, duration: 95 },
+      jump: { image: new Image(), frames: 4, duration: 130 }
+    };
+    sprites.idle.image.src = "Idle1.png";
+    sprites.walk.image.src = "Walk1.png";
+    sprites.jump.image.src = "Jump1.png";
     const platforms = [
       { x: 0, y: 440, w: 300, h: 60 },
-      { x: 390, y: 440, w: 150, h: 60 },
-      { x: 630, y: 440, w: 150, h: 60 },
-      { x: 870, y: 440, w: 150, h: 60 },
-      { x: 1110, y: 440, w: 150, h: 60 },
-      { x: 1350, y: 440, w: 150, h: 60 },
-      { x: 1590, y: 440, w: 350, h: 60 },
-      { x: 190, y: 365, w: 180, h: 18 },
-      { x: 470, y: 315, w: 105, h: 18 },
-      { x: 620, y: 345, w: 100, h: 18 },
-      { x: 735, y: 380, w: 210, h: 18 },
-      { x: 1010, y: 315, w: 125, h: 18 },
-      { x: 1170, y: 355, w: 115, h: 18 },
-      { x: 1310, y: 350, w: 230, h: 18 },
-      { x: 1600, y: 315, w: 120, h: 18 }
+      { x: 410, y: 440, w: 130, h: 60 },
+      { x: 670, y: 440, w: 130, h: 60 },
+      { x: 930, y: 440, w: 130, h: 60 },
+      { x: 1190, y: 440, w: 130, h: 60 },
+      { x: 1450, y: 440, w: 130, h: 60 },
+      { x: 1710, y: 440, w: 390, h: 60 },
+      { x: 180, y: 365, w: 120, h: 18 },
+      { x: 410, y: 315, w: 110, h: 18 },
+      { x: 640, y: 265, w: 110, h: 18 },
+      { x: 870, y: 315, w: 110, h: 18 },
+      { x: 1100, y: 265, w: 110, h: 18 },
+      { x: 1330, y: 215, w: 110, h: 18 },
+      { x: 1550, y: 265, w: 110, h: 18 },
+      { x: 1760, y: 315, w: 120, h: 18 },
+      { x: 1940, y: 355, w: 110, h: 18 }
     ];
     const hazards = [
-      { x: 610, y: 420, w: 58, h: 20 },
-      { x: 1035, y: 420, w: 58, h: 20 },
-      { x: 1580, y: 420, w: 58, h: 20 }
+      { x: 570, y: 420, w: 58, h: 20 },
+      { x: 1095, y: 420, w: 58, h: 20 },
+      { x: 1615, y: 420, w: 58, h: 20 }
     ];
     const signals = [
       { x: 282, y: 326, label: "MFA ON" },
-      { x: 815, y: 337, label: "SECOND FACTOR" },
-      { x: 515, y: 276, label: "RECOVERY CODES" }
+      { x: 1110, y: 227, label: "SECOND FACTOR" },
+      { x: 445, y: 276, label: "RECOVERY CODES" }
     ];
-    const player = { x: 54, y: 396, w: 28, h: 44, vx: 0, vy: 0, grounded: false };
+    const checkpoints = [
+      { x: 220, y: 321 },
+      { x: 1120, y: 221 },
+      { x: 450, y: 271 }
+    ];
+    const player = { x: 54, y: 396, w: 28, h: 44, vx: 0, vy: 0, grounded: true, facing: 1 };
     let collected = [false, false, false];
     let checkpointX = 54;
+    let checkpointY = 396;
     let cameraX = 0;
     let phase = "ready";
     let animationId = 0;
@@ -99,7 +130,8 @@
         label.classList.toggle("is-collected", collected[index]);
       });
       const count = collected.filter(Boolean).length;
-      vaultStatus.textContent = count === signals.length ? "MFA active · vault secured" : "Vault exposed";
+      mfaProgress.value = count;
+      vaultStatus.textContent = count === signals.length ? "MFA active · vault secured" : `MFA setup ${count}/${signals.length} · vault exposed`;
       vaultStatus.classList.toggle("is-secure", count === signals.length);
     }
 
@@ -108,15 +140,24 @@
       keys.clear();
       collected = [false, false, false];
       checkpointX = 54;
+      checkpointY = 396;
       cameraX = 0;
       player.x = 54;
       player.y = 396;
       player.vx = 0;
       player.vy = 0;
+      player.grounded = true;
+      player.facing = 1;
       phase = "ready";
+      quiz.hidden = true;
+      quizFeedback.textContent = "";
+      quizFeedback.classList.remove("is-correct");
+      quiz.querySelectorAll("[data-quiz-answer]").forEach((button) => {
+        button.disabled = false;
+      });
       runButton.textContent = "Start run";
       updateProgress();
-      setMessage("Collect the three MFA setup signals, then reach the vault.", false);
+      setMessage("Secure the account: enable MFA, add a second factor, then save recovery codes.", false);
       draw();
     }
 
@@ -136,9 +177,10 @@
 
     function checkpoint() {
       player.x = checkpointX;
-      player.y = 396;
+      player.y = checkpointY;
       player.vx = 0;
       player.vy = 0;
+      player.grounded = true;
     }
 
     function update(delta) {
@@ -152,12 +194,13 @@
         player.grounded = false;
       }
 
-      const previousX = player.x;
+      if (left !== right) player.facing = left ? -1 : 1;
       player.x = Math.max(0, Math.min(WORLD_WIDTH - player.w, player.x + player.vx * step));
       for (const platform of platforms) {
-        if (overlaps(player, platform)) {
-          player.x = player.vx > 0 ? platform.x - player.w : platform.x + platform.w;
-        }
+        const verticalOverlap = player.y < platform.y + platform.h && player.y + player.h > platform.y;
+        if (!verticalOverlap || !overlaps(player, platform) || player.vx === 0) continue;
+        player.x = player.vx > 0 ? platform.x - player.w : platform.x + platform.w;
+        player.vx = 0;
       }
 
       const previousY = player.y;
@@ -166,11 +209,11 @@
       player.grounded = false;
       for (const platform of platforms) {
         if (!overlaps(player, platform)) continue;
-        if (player.vy >= 0 && previousY + player.h <= platform.y + 5) {
+        if (player.vy >= 0 && previousY + player.h <= platform.y && player.y + player.h >= platform.y) {
           player.y = platform.y - player.h;
           player.vy = 0;
           player.grounded = true;
-        } else if (player.vy < 0 && previousY >= platform.y + platform.h - 5) {
+        } else if (player.vy < 0 && previousY >= platform.y + platform.h && player.y <= platform.y + platform.h) {
           player.y = platform.y + platform.h;
           player.vy = 0;
         }
@@ -189,7 +232,8 @@
       signals.forEach((signal, index) => {
         if (collected[index] || (index === 2 && !collected[1]) || !overlaps(player, { x: signal.x, y: signal.y, w: 30, h: 30 })) return;
         collected[index] = true;
-        checkpointX = [220, 920, 1380][index];
+        checkpointX = checkpoints[index].x;
+        checkpointY = checkpoints[index].y;
         updateProgress();
         const messages = [
           "Step 1: Turn on MFA in your exchange account's security settings.",
@@ -199,11 +243,12 @@
         setMessage(messages[index], true);
       });
 
-      const vault = { x: 1800, y: 316, w: 74, h: 124 };
+      const vault = { x: VAULT_X, y: 316, w: 74, h: 124 };
       if (overlaps(player, vault)) {
         if (collected.every(Boolean)) {
           phase = "won";
           cancelAnimationFrame(animationId);
+          quiz.hidden = false;
           runButton.textContent = "Play again";
           setMessage("Vault secured! MFA adds a verification step beyond your password.", true);
         } else if (performance.now() - lastVaultMessage > 1800) {
@@ -214,24 +259,24 @@
       }
 
       cameraX = Math.max(0, Math.min(WORLD_WIDTH - WIDTH, player.x - 280));
-      if (player.x < previousX) cameraX = Math.max(0, Math.min(WORLD_WIDTH - WIDTH, player.x - 280));
     }
 
     function drawBackground() {
       const sky = ctx.createLinearGradient(0, 0, 0, HEIGHT);
-      sky.addColorStop(0, "#1E3A8A");
-      sky.addColorStop(1, "#1E3A8A");
+      sky.addColorStop(0, "#101b42");
+      sky.addColorStop(0.62, "#1E3A8A");
+      sky.addColorStop(1, "#111b3b");
       ctx.fillStyle = sky;
       ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
       ctx.save();
       ctx.translate(-cameraX * 0.22, 0);
-      for (let index = 0; index < 17; index += 1) {
+      for (let index = 0; index < 19; index += 1) {
         const x = index * 138;
         const height = 100 + ((index * 47) % 115);
-        ctx.fillStyle = index % 3 === 0 ? "#6D28D9" : "#1E3A8A";
+        ctx.fillStyle = index % 3 === 0 ? "#31246d" : "#172b68";
         ctx.fillRect(x, 440 - height, 92, height);
-        ctx.fillStyle = "#FAFAFA";
+        ctx.fillStyle = "rgba(96, 165, 250, 0.55)";
         for (let row = 0; row < Math.floor(height / 24); row += 1) {
           ctx.fillRect(x + 13, 455 - height + row * 24, 5, 5);
           ctx.fillRect(x + 39, 455 - height + row * 24, 5, 5);
@@ -260,11 +305,16 @@
       platforms.forEach((platform) => {
         const x = platform.x - cameraX;
         if (x + platform.w < 0 || x > WIDTH) return;
-        ctx.fillStyle = "#60A5FA";
+        const surface = ctx.createLinearGradient(0, platform.y, 0, platform.y + platform.h);
+        surface.addColorStop(0, "#263b82");
+        surface.addColorStop(1, "#17244e");
+        ctx.fillStyle = surface;
         ctx.fillRect(x, platform.y, platform.w, platform.h);
+        ctx.fillStyle = "#60A5FA";
+        ctx.fillRect(x, platform.y, platform.w, 3);
         ctx.fillStyle = "#6D28D9";
-        ctx.fillRect(x, platform.y, platform.w, 5);
-        ctx.fillStyle = "rgba(30, 58, 138, 0.45)";
+        ctx.fillRect(x, platform.y + 3, platform.w, 3);
+        ctx.fillStyle = "rgba(96, 165, 250, 0.28)";
         for (let stripe = x + 12; stripe < x + platform.w; stripe += 32) {
           ctx.fillRect(stripe, platform.y + 9, 12, 3);
         }
@@ -279,13 +329,51 @@
         const pulse = Math.sin(time / 210 + index) * 3;
         ctx.save();
         ctx.translate(x + 14, signal.y + 14 + pulse);
-        ctx.rotate(Math.PI / 4);
-        ctx.fillStyle = "rgba(96, 165, 250, 0.28)";
-        ctx.fillRect(-18, -18, 36, 36);
-        ctx.fillStyle = "#60A5FA";
-        ctx.fillRect(-10, -10, 20, 20);
-        ctx.fillStyle = "#1E3A8A";
-        ctx.fillRect(-4, -4, 8, 8);
+          ctx.fillStyle = index === 1 ? "rgba(109, 40, 217, 0.32)" : "rgba(96, 165, 250, 0.28)";
+          ctx.fillRect(-18, -18, 36, 36);
+          ctx.fillStyle = "#60A5FA";
+          ctx.fillRect(-13, -13, 26, 26);
+          ctx.fillStyle = "#1E3A8A";
+          if (index === 0) {
+            ctx.beginPath();
+            ctx.moveTo(0, -10);
+            ctx.lineTo(9, -7);
+            ctx.lineTo(8, 2);
+            ctx.quadraticCurveTo(6, 8, 0, 11);
+            ctx.quadraticCurveTo(-6, 8, -8, 2);
+            ctx.lineTo(-9, -7);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = "#FAFAFA";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(-4, 0);
+            ctx.lineTo(-1, 3);
+            ctx.lineTo(5, -4);
+            ctx.stroke();
+          } else if (index === 1) {
+            ctx.fillRect(-7, -11, 14, 22);
+            ctx.fillStyle = "#FAFAFA";
+            ctx.fillRect(-5, -8, 10, 14);
+            ctx.fillStyle = "#6D28D9";
+            ctx.fillRect(-3, -5, 6, 2);
+            ctx.fillRect(-3, -1, 2, 2);
+            ctx.fillRect(1, -1, 2, 2);
+            ctx.fillRect(-3, 3, 2, 2);
+            ctx.fillRect(1, 3, 2, 2);
+            ctx.fillStyle = "#FAFAFA";
+            ctx.fillRect(-1, 8, 2, 1);
+          } else {
+            ctx.fillStyle = "#FAFAFA";
+            ctx.fillRect(-8, -10, 16, 20);
+            ctx.fillStyle = "#6D28D9";
+            ctx.fillRect(-5, -6, 3, 3);
+            ctx.fillRect(1, -6, 3, 3);
+            ctx.fillRect(-5, 0, 3, 3);
+            ctx.fillRect(1, 0, 3, 3);
+            ctx.fillRect(-5, 6, 3, 2);
+            ctx.fillRect(1, 6, 3, 2);
+          }
         ctx.restore();
 
         ctx.fillStyle = "#FAFAFA";
@@ -316,7 +404,7 @@
     }
 
     function drawVault() {
-      const x = 1800 - cameraX;
+      const x = VAULT_X - cameraX;
       ctx.fillStyle = "#60A5FA";
       ctx.fillRect(x, 316, 74, 124);
       ctx.fillStyle = "#1E3A8A";
@@ -338,6 +426,19 @@
 
     function drawPlayer() {
       const x = player.x - cameraX;
+      const sprite = !player.grounded ? sprites.jump : player.vx !== 0 ? sprites.walk : sprites.idle;
+      const image = sprite.image;
+      if (image.complete && image.naturalWidth > 0) {
+        const frame = Math.floor(performance.now() / sprite.duration) % sprite.frames;
+        const size = 72;
+        ctx.save();
+        ctx.translate(x + player.w / 2, 0);
+        ctx.scale(player.facing, 1);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(image, frame * 48, 0, 48, 48, -size / 2, player.y + player.h - size + 8, size, size);
+        ctx.restore();
+        return;
+      }
       ctx.fillStyle = "#FAFAFA";
       ctx.fillRect(x + 4, player.y + 3, 20, 17);
       ctx.fillStyle = "#1E3A8A";
@@ -367,10 +468,10 @@
       } else {
         ctx.fillStyle = "#60A5FA";
         ctx.font = "900 30px Trebuchet MS, sans-serif";
-        ctx.fillText("PASSWORDS AREN'T A FORCE FIELD", WIDTH / 2, 203);
+        ctx.fillText("ADD A SECOND FACTOR", WIDTH / 2, 203);
         ctx.fillStyle = "#FAFAFA";
         ctx.font = "600 16px Trebuchet MS, sans-serif";
-        ctx.fillText("Collect the MFA setup signals and protect the vault.", WIDTH / 2, 237);
+        ctx.fillText("Enable MFA and keep your recovery codes somewhere safe.", WIDTH / 2, 237);
       }
     }
 
@@ -406,6 +507,20 @@
     window.addEventListener("blur", () => keys.clear());
 
     root.querySelector("[data-reset]").addEventListener("click", resetLevel);
+    quiz.querySelectorAll("[data-quiz-answer]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const correct = button.dataset.quizAnswer === "correct";
+        quizFeedback.textContent = correct
+          ? "Correct. MFA checks that it is really you, even if your password is exposed."
+          : "Not quite. MFA adds another verification step; it does not make passwords impossible to steal.";
+        quizFeedback.classList.toggle("is-correct", correct);
+        if (correct) {
+          quiz.querySelectorAll("[data-quiz-answer]").forEach((answer) => {
+            answer.disabled = true;
+          });
+        }
+      });
+    });
     runButton.addEventListener("click", () => {
       if (phase === "playing") resetLevel();
       beginRun();
