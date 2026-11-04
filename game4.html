@@ -12,7 +12,7 @@
 #c,#ov{position:absolute;inset:0;width:100%;height:100%;border-radius:10px}
 #c{box-shadow:0 8px 28px rgba(30,58,138,.2)}
 #ov{cursor:crosshair;touch-action:none}
-/* Layout: a city of buildings seen from above. A blaster scope follows the mouse, zooms in on targets, and shows a quick ID. Lingering on a scammer traces you; pursuers chase until you break away. */
+/* Layout: a city of buildings seen from above. People trade messages that only the lens can see. Intercept one, identify it, report a scammer to highlight them, then blast. Letting a probe run out sends a security bot after you for 10 seconds. */
 :root{--paper:#FAFAFA;--navy:#1E3A8A;--violet:#6D28D9;--sky:#60A5FA;--white:#FFFFFF;--mute:#4b5f8c;--line:#D5DDF0;--good:#15803D;--danger:#B91C1C;--warn:#B45309;
   --display:"Space Grotesk","Trebuchet MS",system-ui,sans-serif;--body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;color-scheme:light}
 *{box-sizing:border-box}
@@ -110,17 +110,17 @@ button:focus-visible{outline:2px solid var(--violet);outline-offset:2px}
     <div class="stat"><label>District</label><output id="hLevel">1 of 3</output></div>
     <div class="stat"><label>Targets left</label><output id="hLeft">0</output></div>
     <div class="stat"><label>Shields</label><div class="shields" id="hShields" role="img" aria-label="shields"></div></div>
-    <div class="stat"><label>Pursuing</label><output id="hPursue">0 / 3</output></div>
+    <div class="stat"><label>Security bots</label><output id="hPursue">0 / 3</output></div>
     <div class="stat"><label>Score</label><output id="hScore">0</output></div>
   </header>
   <main id="stage">
-    <div class="view"><canvas id="c" width="900" height="540" aria-hidden="true"></canvas><canvas id="ov" width="900" height="540" aria-label="City in 3D with a blaster scope. Aim with the mouse, click a contact to probe, then blast."></canvas></div>
+    <div class="view"><canvas id="c" width="900" height="540" aria-hidden="true"></canvas><canvas id="ov" width="900" height="540" aria-label="City in 3D with a lens. Aim with the mouse to trace messages between people, click a trace to read it, report scammers, then blast them."></canvas></div>
     <div id="toast" role="status"></div>
     <aside id="scan" hidden aria-label="Probe on contact">
       <div class="scan-head"><span class="eyebrow">Probe on contact</span><span id="scanTime">10s</span></div>
       <div class="scan-bar"><i id="scanBar"></i></div>
       <div class="scan-body" id="scanBody"></div>
-      <div class="scan-foot"><span id="scanCount">Tagged 0</span><div class="row"><button class="btn" id="scanBlast" type="button">Blast</button><button class="btn ghost" id="scanSafe" type="button">Mark safe</button><button class="btn ghost" id="scanClose" type="button">Close</button></div></div>
+      <div class="scan-foot"><span id="scanCount">Tagged 0</span><div class="row"><button class="btn" id="scanReport" type="button">Report</button><button class="btn ghost" id="scanSafe" type="button">Mark safe</button><button class="btn ghost" id="scanClose" type="button">Close</button></div></div>
     </aside>
     <div id="hint" hidden></div>
   </main>
@@ -130,7 +130,7 @@ button:focus-visible{outline:2px solid var(--violet);outline-offset:2px}
   <div class="sheet">
     <div class="eyebrow">Cybersecurity Awareness Month · Step 4 of 4</div>
     <h2>Specter Lens: Recognize &amp; Report</h2>
-    <p>Use your blaster scope to find the scammers among the contacts, and stop them. Brass plaques around the city hold facts about spotting and reporting scams.</p>
+    <p>Messages are moving between people all over the city, and only your lens can see them. Trace them, report the scams, and blast the scammers. Brass plaques around the city hold facts about spotting and reporting scams.</p>
 
     <div class="row"><button class="btn" id="btnStart" type="button">Start mission</button></div>
   </div>
@@ -162,10 +162,11 @@ button:focus-visible{outline:2px solid var(--violet);outline-offset:2px}
     <h2 id="tutTitle">How to play</h2>
     <ol class="how">
       <li><b>Move</b> with WASD or arrows. Hold <b>Shift</b> to sprint.</li>
-      <li><b>Aim</b> the scope with the mouse (or I J K L). Hover a contact for a quick ID.</li>
-      <li><b>Click a contact</b> to launch a probe on them. Tag every suspicious part of their message before the probe runs out.</li>
-      <li><b>Mark safe</b> clears a genuine contact so the probe never flags them. Marking a scammer safe lets them slip away and costs a shield.</li>
-      <li><b>Blast</b> them with the Blast button or Space while the probe is on. Blasting a genuine contact costs a shield. Anyone who spots the probe starts chasing you.</li>
+      <li><b>Aim</b> the lens with the mouse (or I J K L). Messages moving between people only show up inside the lens. Sweep it over a trace for a quick ID.</li>
+      <li><b>Click a trace</b> to launch a probe on the message. Tag every suspicious part before the probe runs out, or a security bot hunts you for 10 seconds. Sprint or dodge until it powers down.</li>
+      <li><b>Mark safe</b> clears a genuine sender so the lens stops tracing them. Marking a scammer safe lets them slip away and costs a shield.</li>
+      <li><b>Report</b> a scam to highlight the sender in red. Reporting a genuine contact costs a shield.</li>
+      <li><b>Blast</b> the highlighted scammer: follow the red arrow, get in range, put them in the lens, then click or press Space.</li>
     </ol>
     <div class="row"><button class="btn" id="tutGo" type="button">Got it, start</button></div>
   </div>
@@ -380,19 +381,20 @@ const sfx={
 "use strict";
 /* ======================= WORLD SETTINGS ======================= */
 const VW=900, VH=540, WW=1600, WH=1000, WALL=14, DOOR=90;
-const SCOPE_R=60, SCAN_T=10, BLAST_RANGE=340, PURSUE_SP=112, PURSUE_MAX=3, GIVEUP_T=4, GIVEUP_D=380;
+const SCOPE_R=60, TRACE_R=34, PACKET_SP=110, SCAN_T=10, BLAST_RANGE=340, BOT_SP=190, BOT_MAX=3, BOT_T=10, BOT_SPAWN_D=400;
 const WALK=160, SPRINT=220, AIM_SP=280;
 const C={street:'#D6E1F5', grid:'#C3D2EE', bldg:'#F4F7FD', wall:'#1E3A8A', ink:'#1E3A8A', sky:'#60A5FA', violet:'#6D28D9',
   danger:'#B91C1C', good:'#15803D', warn:'#B45309', white:'#FFFFFF', civ:'#9FB0D3', paper:'#FAFAFA'};
 const LEVELS=[{name:'Downtown Harborline',key:'all'}];
 const rnd=(a,b)=>a+Math.random()*(b-a);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function segDist(px,py,ax,ay,bx,by){ const dx=bx-ax, dy=by-ay, u=clamp(((px-ax)*dx+(py-ay)*dy)/Math.max(dx*dx+dy*dy,1),0,1); return Math.hypot(px-ax-u*dx,py-ay-u*dy); }
 
 /* ======================= STATE ======================= */
 const cv=$('#c'), ov=$('#ov'), cx=ov.getContext('2d');
-let S={score:0,shields:3,caught:0,falseBlasts:0}, LV=0, blds=[], obs=[], targets=[], civs=[];
-let scan=null, lastTags={found:0,total:0}, plaques=[];
-let hov=null, hoverT=null, hoverTime=0, cool=0, beam=null, mode='title', cur=null, lastT=0, runClock=0;
+let S={score:0,shields:3,caught:0,falseReports:0}, LV=0, blds=[], obs=[], targets=[], civs=[];
+let scan=null, plaques=[], bots=[];
+let hov=null, lock=null, hoverT=null, hoverTime=0, cool=0, beam=null, mode='title', cur=null, lastT=0, runClock=0;
 const P={x:0,y:0,r:12,inv:0};
 const cam={x:0,y:0};
 const ptr={x:VW/2,y:VH/2};
@@ -480,14 +482,14 @@ function wrapText(text,maxChars,maxLines){
 function mkTarget(m,kind,boss,inBuilding){
   let p;
   do{ p = inBuilding ? spotIn(pick(blds)) : spotFree(); } while(Math.hypot(p.x-P.x,p.y-P.y)<260);
-  return {x:p.x,y:p.y,hx:p.x,hy:p.y,tx:p.x,ty:p.y,tt:0,m,kind,boss,state:'idle',look:0,giveUp:0,id:quickID(m)};
+  return {x:p.x,y:p.y,hx:p.x,hy:p.y,tx:p.x,ty:p.y,tt:0,m,kind,boss,state:'idle',look:0,id:quickID(m),send:null,txWait:rnd(0,2),reported:false,tags:null};
 }
 function startLevel(i){
   LV=i; genCity(); buildWorld(); clearGroup(actors);
   const M=MSG[LEVELS[i].key];
   const home=pick(blds);
   P.x=home.x+home.w/2; P.y=home.y+home.h/2; P.inv=2;
-  cool=0; beam=null; hov=null; hoverT=null; hoverTime=0;
+  cool=0; beam=null; bots=[]; hov=null; lock=null; hoverT=null; hoverTime=0;
   const list=shuffle([...M.scams.map(m=>({m,kind:'scam'})), ...M.legit.map(m=>({m,kind:'legit'}))]);
   targets=list.map((o,k)=>mkTarget(o.m,o.kind,false,k%2===0));
   M.bosses.forEach(b=>targets.push(mkTarget(b,'boss',true,true)));
@@ -497,7 +499,7 @@ function startLevel(i){
   plaques.forEach(p=>{ p.mesh=new THREE.Mesh(new THREE.BoxGeometry(18,14,3), new THREE.MeshLambertMaterial({color:COL.brass})); p.mesh.position.set(p.x,7,p.y); actors.add(p.mesh); });
   cam.x=clamp(P.x-VW/2,0,WW-VW); cam.y=clamp(P.y-VH/2,0,WH-VH);
   mode='play';
-  toast(`${LEVELS[i].name}. You're inside a building. Find the way out and locate your targets.`);
+  toast(`${LEVELS[i].name}. Sweep your lens around to find messages moving between people.`);
   updateHUD();
 }
 function transitionTo(i){
@@ -526,44 +528,81 @@ function update(dt){
   runClock+=dt;
   cam.x=clamp(P.x-VW/2,0,WW-VW); cam.y=clamp(P.y-VH/2,0,WH-VH);
 
-  // scope: the contact under the lens shows a quick ID
-  const _a=aimPos(), wx=_a.x, wy=_a.y;
-  hov=null; let bd=SCOPE_R;
-  targets.forEach(t=>{ if(t.state==='caught') return; const d=Math.hypot(t.x-wx,t.y-wy); if(d<bd){ bd=d; hov=t; } });
-  // an active probe counts down; if it runs out, the contact spots it and pursues you
+  // an active probe counts down; if it runs out, a security bot is sent after you
   if(scan){
     scan.time-=dt; scan.t.look=Math.max(0,scan.time/SCAN_T);
-    if(scan.time<=0){ const t=scan.t; endScan(); startPursuit(t); }
+    if(scan.time<=0){ endScan(); spawnBot(); }
   }
 
   // contacts
   targets.forEach(t=>{
     if(t.state==='caught'||t.state==='safe') return;
-    if(t.state==='pursue'){
-      const d=Math.hypot(P.x-t.x,P.y-t.y);
-      if(d>GIVEUP_D){ t.giveUp+=dt; if(t.giveUp>GIVEUP_T) calmDown(t); } else t.giveUp=0;
-      const dd=Math.max(d,1);
-      moveSlide(t,(P.x-t.x)/dd*PURSUE_SP*dt,(P.y-t.y)/dd*PURSUE_SP*dt);
-      if(t.state==='pursue' && d<22 && P.inv<=0){ loseShield('A pursuer caught up with you!'); calmDown(t); }
-    } else {
-      t.tt-=dt;
-      if(t.tt<=0 || Math.hypot(t.tx-t.x,t.ty-t.y)<4){ const a=rnd(0,6.283), r=rnd(10,70); t.tx=t.hx+Math.cos(a)*r; t.ty=t.hy+Math.sin(a)*r; t.tt=rnd(2,5); }
-      const ex=t.tx-t.x, ey=t.ty-t.y, dd=Math.max(Math.hypot(ex,ey),1);
-      if(!moveSlide(t,ex/dd*20*dt,ey/dd*20*dt)) t.tt=0;
-    }
+    t.tt-=dt;
+    if(t.tt<=0 || Math.hypot(t.tx-t.x,t.ty-t.y)<4){ const a=rnd(0,6.283), r=rnd(10,70); t.tx=t.hx+Math.cos(a)*r; t.ty=t.hy+Math.sin(a)*r; t.tt=rnd(2,5); }
+    const ex=t.tx-t.x, ey=t.ty-t.y, dd=Math.max(Math.hypot(ex,ey),1);
+    if(!moveSlide(t,ex/dd*20*dt,ey/dd*20*dt)) t.tt=0;
+    if(!t.reported) updateTx(t,dt);
   });
+  bots=bots.filter(b=>updateBot(b,dt));
   if(mode!=='play') return;
 
   plaques.forEach(p=>{ if(!p.read && Math.hypot(p.x-P.x,p.y-P.y)<40){ p.read=true; toast('Plaque: '+p.text,'good',7000); sfx.clue(); } });
   civs.forEach(c=>{ c.t-=dt; if(c.t<=0){ const a=rnd(0,6.283); c.vx=Math.cos(a)*25; c.vy=Math.sin(a)*25; c.t=rnd(1,3); }
     if(!moveSlide(c,c.vx*dt,c.vy*dt,8)) c.t=0; });
+  // lens: a message trace under it shows a quick ID, and a reported scammer under it can be blasted
+  const _a=aimPos(), wx=_a.x, wy=_a.y;
+  hov=traceAt(wx,wy); lock=lockAt(wx,wy);
   updateHUD();
 }
-function calmDown(t){ t.state='idle'; t.giveUp=0; t.look=0; t.tx=t.hx; t.ty=t.hy; }
-function startPursuit(t){
-  if(targets.filter(x=>x.state==='pursue').length>=PURSUE_MAX){ toast('Too many pursuers. Break away from them first.','warn'); return; }
-  t.state='pursue'; t.giveUp=0; sfx.hit();
-  toast(`${t.boss?t.m.name:'A contact'} spotted the probe and is pursuing you. Break away!`,'bad');
+// messages: each contact keeps sending to someone nearby; only the lens camera can see them
+function pickRecipient(t){
+  const all=[...civs,...targets.filter(o=>o!==t && o.state!=='caught')];
+  const near=all.filter(o=>{ const d=Math.hypot(o.x-t.x,o.y-t.y); return d>120 && d<420; });
+  if(near.length) return pick(near);
+  return all.reduce((a,o)=>Math.hypot(o.x-t.x,o.y-t.y)<Math.hypot(a.x-t.x,a.y-t.y)?o:a,all[0]);
+}
+function updateTx(t,dt){
+  if(!t.send){
+    t.txWait-=dt;
+    if(t.txWait<=0) t.send={to:pickRecipient(t),time:rnd(9,16),u:0};
+    return;
+  }
+  const len=Math.max(Math.hypot(t.send.to.x-t.x,t.send.to.y-t.y),1);
+  t.send.u=(t.send.u+dt*PACKET_SP/len)%1;
+  if(!(scan && scan.t===t)) t.send.time-=dt;
+  if(t.send.time<=0 || t.send.to.state==='caught'){ t.send=null; t.txWait=rnd(1,3); }
+}
+function traceAt(wx,wy){
+  let best=null, bd=TRACE_R;
+  targets.forEach(t=>{ if(!t.send) return; const d=segDist(wx,wy,t.x,t.y,t.send.to.x,t.send.to.y); if(d<bd){ bd=d; best=t; } });
+  return best;
+}
+function lockAt(wx,wy){
+  let best=null, bd=SCOPE_R;
+  targets.forEach(t=>{ if(!t.reported || t.state==='caught') return; const d=Math.hypot(t.x-wx,t.y-wy); if(d<bd){ bd=d; best=t; } });
+  return best;
+}
+// security bots: hover over walls, hunt you for BOT_T seconds, then power down
+function spawnBot(){
+  if(bots.length>=BOT_MAX){ toast('Probe ran out, but every security bot is already hunting you.','warn'); return; }
+  let x=P.x, y=P.y;
+  for(let k=0;k<20;k++){
+    const a=rnd(0,6.283); x=P.x+Math.cos(a)*BOT_SPAWN_D; y=P.y+Math.sin(a)*BOT_SPAWN_D;
+    if(x>30 && x<WW-30 && y>30 && y<WH-30) break;
+  }
+  const b={x:clamp(x,30,WW-30),y:clamp(y,30,WH-30),time:BOT_T,mesh:makeBot()};
+  actors.add(b.mesh); bots.push(b); sfx.hit();
+  toast('Probe ran out. A security bot is hunting you. Survive for 10 seconds!','bad');
+}
+function updateBot(b,dt){
+  b.time-=dt;
+  const d=Math.hypot(P.x-b.x,P.y-b.y), dd=Math.max(d,1);
+  b.x+=(P.x-b.x)/dd*BOT_SP*dt; b.y+=(P.y-b.y)/dd*BOT_SP*dt;
+  const hit=d<22 && P.inv<=0;
+  if(hit) loseShield('A security bot caught you!');
+  else if(b.time<=0) toast('The security bot powered down.','good');
+  if(hit || b.time<=0){ actors.remove(b.mesh); return false; }
+  return true;
 }
 function loseShield(why){
   if(P.inv>0 || mode!=='play') return;
@@ -575,38 +614,50 @@ function loseShield(why){
 
 /* ======================= BLAST & VERDICT ======================= */
 function blast(){
-  if(mode!=='play' || !scan || cool>0) return;
-  const tgt=scan.t;
+  if(mode!=='play' || cool>0) return;
+  const _a=aimPos(), tgt=lockAt(_a.x,_a.y);
+  if(!tgt){
+    toast(targets.some(t=>t.reported && t.state!=='caught')?'Put the reported scammer in your lens, then blast.':'Nothing to blast yet. Report a scammer first.','warn');
+    return;
+  }
   if(Math.hypot(tgt.x-P.x,tgt.y-P.y)>BLAST_RANGE){ toast('Out of blaster range. Get closer.','warn'); return; }
-  lastTags={found:scan.found.size, total:scan.clues.length};
-  endScan();
   cool=.4; beam={x1:P.x,y1:P.y,x2:tgt.x,y2:tgt.y,t:.25};
-  const correct = tgt.kind!=='legit';
-  if(correct){ tgt.state='caught'; S.score+=(tgt.boss?300:100); S.caught++; sfx.good(); }
-  else { S.shields--; S.falseBlasts++; sfx.bad(); }
+  tgt.state='caught'; S.score+=(tgt.boss?300:100); S.caught++; sfx.good();
   updateHUD();
-  showVerdict(tgt,correct);
+  showVerdict(tgt,true);
 }
-// probe: click a contact to start scanning their message
+// report: a scammer gets highlighted for you to blast; a genuine contact costs a shield
+function report(){
+  if(mode!=='play' || !scan) return;
+  const t=scan.t;
+  t.tags={found:scan.found.size, total:scan.clues.length};
+  endScan();
+  if(t.kind==='legit'){
+    S.shields--; S.falseReports++; sfx.bad();
+    updateHUD();
+    showVerdict(t,false);
+    return;
+  }
+  t.reported=true; t.send=null; sfx.ding();
+  toast(`Reported. ${t.boss?t.m.name:'The scammer'} is highlighted in red. Get in range and blast them!`,'good',5000);
+  updateHUD();
+}
+// probe: click a message trace to start reading it
 function startScan(t){
   if(mode!=='play') return;
-  if(scan){ toast('Finish or close your current probe first.','warn'); return; }
-  if(t.state==='caught') return;
-  if(t.state==='safe'){ toast('Already marked safe. The probe will leave them alone.'); return; }
-  if(Math.hypot(t.x-P.x,t.y-P.y)>BLAST_RANGE){ toast('Out of probe range. Get closer.','warn'); return; }
   const ctx={clues:[]};
   $('#scanBody').innerHTML=renderMessage(t.m,ctx);
   scan={t, clues:ctx.clues, found:new Set(), time:SCAN_T};
   $('#scanCount').textContent=`Tagged 0 of ${ctx.clues.length}`;
   $('#scan').hidden=false;
-  toast('Probe on. Tag every suspicious part, then blast before time runs out.');
+  toast('Probe on. Tag every suspicious part, then report it before time runs out.');
   sfx.blip();
 }
 function startScanAtScope(){
   if(mode!=='play') return;
-  const _a=aimPos(), wx=_a.x, wy=_a.y; let tgt=null, bd=SCOPE_R*1.4;
-  targets.forEach(t=>{ if(t.state==='caught') return; const d=Math.hypot(t.x-wx,t.y-wy); if(d<bd){ bd=d; tgt=t; } });
-  if(!tgt){ toast('Nothing in the scope.'); return; }
+  if(scan){ toast('Finish or close your current probe first.','warn'); return; }
+  const _a=aimPos(), tgt=traceAt(_a.x,_a.y);
+  if(!tgt){ toast('No message in the lens. Sweep it around to find one.'); return; }
   startScan(tgt);
 }
 function endScan(){
@@ -623,15 +674,15 @@ $('#scanBody').addEventListener('click',e=>{
   S.score+=25; updateHUD(); toast('Red flag tagged: +25 points','good');
   $('#scanCount').textContent=`Tagged ${scan.found.size} of ${scan.clues.length}`;
 });
-$('#scanBlast').addEventListener('click',()=>blast());
-// Mark safe: clear a genuine contact so the probe never flags them; a scammer slips away and costs a shield
+$('#scanReport').addEventListener('click',()=>report());
+// Mark safe: clear a genuine contact so the lens stops tracing them; a scammer slips away and costs a shield
 function markSafe(){
   if(mode!=='play' || !scan) return;
   const t=scan.t;
   endScan();
   if(t.kind==='legit'){
-    t.state='safe'; S.score+=50; sfx.good();
-    toast('Marked safe. The probe will never flag them.','good');
+    t.state='safe'; t.send=null; S.score+=50; sfx.good();
+    toast('Marked safe. The lens will stop tracing them.','good');
   } else {
     S.shields--; S.falseSafe=(S.falseSafe||0)+1; sfx.bad();
     toast('That was a scammer. Marking them safe let them slip away. Shield lost.','bad',5000);
@@ -649,13 +700,13 @@ function showVerdict(t,correct){
   $('#vChannel').textContent=CH_LABEL[t.m.ch];
   $('#vBoss').hidden=!t.boss;
   $('#vBody').innerHTML=html;
-  const head = !correct ? 'Genuine contact blasted' : (t.boss?`${t.m.name} stopped`:'Scam stopped');
+  const head = !correct ? 'Genuine contact reported' : (t.boss?`${t.m.name} stopped`:'Scam stopped');
   const txt = correct
     ? `<p>The right move: <b>${esc(t.m.bestNote||REPORT[t.m.rep])}</b>.</p>`
-    : `<p>This contact was genuine, so blasting them cost you a shield. Scan longer before you fire.</p>`;
+    : `<p>This contact was genuine, so reporting them cost you a shield. Read the message carefully before you report.</p>`;
   const vh=$('#vHead'); vh.className='verdict '+(correct?'good':'bad');
   vh.innerHTML=`<h4>${head}<span>${correct?'+'+(t.boss?300:100):'−1 shield'}</span></h4>${txt}<p class="lesson">${esc(t.m.lesson)}</p>`;
-  const tagLine = correct ? `<p>You tagged ${lastTags.found} of ${lastTags.total} red flags.</p>` : '';
+  const tagLine = correct ? `<p>You tagged ${t.tags.found} of ${t.tags.total} red flags.</p>` : '';
   $('#vFlags').innerHTML = tagLine + (correct && ctx.clues.length
     ? `<h3>Red flags</h3><ul class="spotted">${ctx.clues.map(c=>`<li><strong>${esc(c.text)}</strong><br>${esc(c.why)}</li>`).join('')}</ul>` : '');
   $('#vFact').innerHTML = `<div class="cyber"><b>Did you know?</b>${esc(pick(FACTS))}</div>`;
@@ -691,20 +742,20 @@ function afterCard(){
 /* ======================= HUD / TOAST / END ======================= */
 function updateHUD(){
   const left=targets.filter(t=>t.kind!=='legit' && t.state!=='caught').length;
-  const pursuing=targets.filter(t=>t.state==='pursue').length;
   $('#hLevel').textContent=LEVELS[LV].name;
   $('#hLeft').textContent=left;
-  $('#hPursue').textContent=`${pursuing} / ${PURSUE_MAX}`;
+  $('#hPursue').textContent=`${bots.length} / ${BOT_MAX}`;
   $('#hScore').textContent=S.score.toLocaleString();
   $('#hShields').innerHTML=[0,1,2].map(i=>`<svg viewBox="0 0 16 18" aria-hidden="true"><path d="M8 1 L15 4 V9 C15 13 12 16 8 17 C4 16 1 13 1 9 V4 Z" fill="${i<S.shields?'#60A5FA':'none'}" stroke="#60A5FA" stroke-width="1.5"/></svg>`).join('');
   const h=$('#hint');
   if(mode!=='play'){ h.hidden=true; return; }
   h.hidden=false;
-  if(scan){ h.textContent='Probe on. Tag the red flags, then blast (Space).'; h.className=''; $('#scanTime').textContent=Math.ceil(scan.time)+'s'; $('#scanBar').style.width=(scan.time/SCAN_T*100)+'%'; }
-  else if(pursuing){ h.textContent='Pursued! Get out of range to lose them.'; h.className='alert'; }
-  else if(hov && hov.state==='idle'){ h.textContent='Hold steady to trace them. Click to blast.'; h.className=''; }
-  else if(hov){ h.textContent='Genuine contact in your scope. Click only on scammers.'; h.className=''; }
-  else { h.textContent='WASD to move, Shift to sprint. Aim the scope with the mouse.'; h.className=''; }
+  if(scan){ h.textContent='Probe on. Tag the red flags, then Report or Mark safe.'; h.className=''; $('#scanTime').textContent=Math.ceil(scan.time)+'s'; $('#scanBar').style.width=(scan.time/SCAN_T*100)+'%'; }
+  else if(bots.length){ h.textContent=`Security bot hunting you! Sprint or dodge for ${Math.ceil(Math.max(...bots.map(b=>b.time)))}s.`; h.className='alert'; }
+  else if(lock){ h.textContent='Scammer in your lens. Click or press Space to blast.'; h.className='alert'; }
+  else if(hov){ h.textContent='Message traced. Click to probe it.'; h.className=''; }
+  else if(targets.some(t=>t.reported && t.state!=='caught')){ h.textContent='Scammer reported. Follow the red marker and blast them.'; h.className='alert'; }
+  else { h.textContent='WASD to move, Shift to sprint. Sweep the lens to find messages.'; h.className=''; }
 }
 let toastT;
 function toast(msg,kind='',ms=3800){ const t=$('#toast'); t.textContent=msg; t.className='show '+kind; clearTimeout(toastT); toastT=setTimeout(()=>t.className=kind,ms); }
@@ -717,11 +768,11 @@ function endGame(win){
   $('#eEyebrow').textContent=win?'Mission complete':'Shields down';
   $('#eTitle').textContent=win?'The scam ring is shut down':'The scammers got through';
   $('#eBody').textContent=win
-    ? 'You cleared the district and beat all four bosses. Looking carefully before you act, and not blasting genuine contacts, is what keeps people safe.'
-    : `You lost all three shields in ${LEVELS[LV].name}. Scan longer before you fire, and break away when you're pursued.`;
+    ? 'You cleared the district and beat all four bosses. Looking carefully before you act, and reporting what is really a scam, is what keeps people safe.'
+    : `You lost all three shields in ${LEVELS[LV].name}. Read each message carefully before you report it, and don't let probes run out, or security bots will hunt you.`;
   $('#eStats').innerHTML=[
     [S.score.toLocaleString(),'Score'+(win&&S.score>best?' · new best':'')],[`${mm}:${ss}`,'Time'],
-    [S.caught,'Scams stopped'],[S.falseBlasts,'Genuine blasted'],[targets.filter(t=>t.boss&&t.state==='caught').length+'/'+targets.filter(t=>t.boss).length,'Bosses beaten']
+    [S.caught,'Scams stopped'],[S.falseReports,'Genuine reported'],[targets.filter(t=>t.boss&&t.state==='caught').length+'/'+targets.filter(t=>t.boss).length,'Bosses beaten']
   ].map(([b,l])=>`<div><b>${b}</b><span>${l}</span></div>`).join('');
   $('#end').hidden=false;
   setTimeout(()=>$('#btnRestart').focus({preventScroll:true}),30);
@@ -729,7 +780,7 @@ function endGame(win){
 }
 function startRun(){
   endScan();
-  S={score:0,shields:3,caught:0,falseBlasts:0}; runClock=0; transitionFlag=false;
+  S={score:0,shields:3,caught:0,falseReports:0}; runClock=0; transitionFlag=false;
   $('#title').hidden=true; $('#end').hidden=true; $('#verdict').hidden=true; $('#fact').hidden=true; $('#fade').hidden=true;
   startLevel(0); lastT=performance.now();
 }
@@ -754,13 +805,13 @@ function aimFrom(e){
   ptr.x=clamp((e.clientX-r.left)*VW/r.width,0,VW); ptr.y=clamp((e.clientY-r.top)*VH/r.height,0,VH);
 }
 ov.addEventListener('pointermove',e=>{ aimFrom(e); });
-ov.addEventListener('pointerdown',e=>{ aimFrom(e); startScanAtScope(); });
+ov.addEventListener('pointerdown',e=>{ aimFrom(e); const _a=aimPos(); if(lockAt(_a.x,_a.y)) blast(); else startScanAtScope(); });
 
 /* ======================= 3D WORLD ======================= */
 const COL={street:0xD6E1F5, bldg:0xF4F7FD, wall:0x1E3A8A, ink:0x1E3A8A, sky:0x60A5FA, violet:0x6D28D9,
-  danger:0xB91C1C, good:0x15803D, warn:0xB45309, white:0xFFFFFF, civ:0x9FB0D3, crate:0x9FB4E0, brass:0xB45309, skin:0xE8C7A8};
+  danger:0xB91C1C, good:0x15803D, warn:0xB45309, white:0xFFFFFF, civ:0x9FB0D3, crate:0x9FB4E0, brass:0xB45309, skin:0xE8C7A8, bot:0x334155};
 const INSET=170;
-const C2={ink:'#1E3A8A', sky:'#60A5FA', violet:'#6D28D9', danger:'#B91C1C', white:'#FFFFFF'};
+const C2={ink:'#1E3A8A', sky:'#60A5FA', violet:'#6D28D9', danger:'#B91C1C', warn:'#B45309', white:'#FFFFFF'};
 const renderer=new THREE.WebGLRenderer({canvas:cv, antialias:true});
 renderer.setPixelRatio(1); renderer.setSize(VW,VH,false);
 renderer.setClearColor(0xFAFAFA,1);
@@ -769,6 +820,12 @@ scene.add(new THREE.HemisphereLight(0xffffff,0x8093b8,0.95));
 const sun=new THREE.DirectionalLight(0xffffff,0.45); sun.position.set(200,400,150); scene.add(sun);
 const cam3=new THREE.PerspectiveCamera(50,VW/VH,1,3000);
 const zoomCam=new THREE.PerspectiveCamera(26,1,1,3000);
+// layer 1 holds everything only the lens can see
+const LENS_LAYER=1; zoomCam.layers.enable(LENS_LAYER);
+const txBeamGeo=new THREE.BoxGeometry(1,1,1), txPacketGeo=new THREE.SphereGeometry(3.6,10,8);
+const txBeamMat=new THREE.MeshBasicMaterial({color:COL.sky,transparent:true,opacity:.6,depthTest:false});
+const txBeamHot=new THREE.MeshBasicMaterial({color:COL.violet,transparent:true,opacity:.85,depthTest:false});
+const txPacketMat=new THREE.MeshBasicMaterial({color:COL.violet,transparent:true,depthTest:false});
 const world=new THREE.Group(); scene.add(world);
 const actors=new THREE.Group(); scene.add(actors);
 const beamLine=new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({color:COL.sky}));
@@ -801,10 +858,35 @@ function makePerson(color){
   g.userData={body:body.material, ring:ring, prog:null};
   return g;
 }
+function makeBot(){
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.BoxGeometry(22,16,22), new THREE.MeshLambertMaterial({color:COL.bot}));
+  body.position.y=50; g.add(body);
+  const eye=new THREE.Mesh(new THREE.BoxGeometry(14,5,3), new THREE.MeshBasicMaterial({color:COL.danger}));
+  eye.position.set(0,52,12); g.add(eye);
+  const ring=new THREE.Mesh(new THREE.RingGeometry(14,18,36), new THREE.MeshBasicMaterial({color:COL.warn,side:THREE.DoubleSide}));
+  ring.rotation.x=-Math.PI/2; ring.position.y=0.7; g.add(ring);
+  g.userData={ring};
+  return g;
+}
 function ensureTargetMesh(t){
   if(t.mesh) return;
   t.mesh=makePerson(COL.ink);
   actors.add(t.mesh);
+  const beam=new THREE.Mesh(txBeamGeo,txBeamMat); beam.renderOrder=5; beam.layers.set(LENS_LAYER); beam.visible=false; actors.add(beam);
+  const packets=[0,1,2,3].map(()=>{ const p=new THREE.Mesh(txPacketGeo,txPacketMat); p.renderOrder=6; p.layers.set(LENS_LAYER); p.visible=false; actors.add(p); return p; });
+  t.txMesh={beam,packets};
+}
+function syncTx(t){
+  const {beam,packets}=t.txMesh, on=!!t.send;
+  beam.visible=on; packets.forEach(p=>p.visible=on);
+  if(!on) return;
+  const dx=t.send.to.x-t.x, dz=t.send.to.y-t.y;
+  beam.position.set(t.x+dx/2,14,t.y+dz/2);
+  beam.rotation.y=-Math.atan2(dz,dx);
+  beam.scale.set(Math.hypot(dx,dz),1,2.4);
+  beam.material=(t===hov || (scan && scan.t===t))?txBeamHot:txBeamMat;
+  packets.forEach((p,i)=>{ const u=(t.send.u+i/packets.length)%1; p.position.set(t.x+dx*u,14,t.y+dz*u); });
 }
 // aim: where the pointer lands on the ground, as world x and z (z is the old y)
 const _ray=new THREE.Raycaster(), _pl=new THREE.Plane(new THREE.Vector3(0,1,0),0), _v=new THREE.Vector2(), _hit=new THREE.Vector3();
@@ -827,17 +909,25 @@ function sync3D(now){
     } else if(t.state==='safe'){
       u.body.color.setHex(COL.ink); u.body.transparent=true; u.body.opacity=.5; u.ring.visible=false;
     } else {
-      const pursuing=t.state==='pursue';
-      u.body.color.setHex(pursuing?COL.danger:COL.ink); u.body.transparent=false; u.body.opacity=1;
-      u.ring.visible=true; u.ring.material.color.setHex(pursuing?COL.danger:COL.sky);
-      u.ring.scale.setScalar(pursuing?1+Math.sin(now/120)*.08:1);
+      u.body.color.setHex(t.reported?COL.danger:COL.ink); u.body.transparent=false; u.body.opacity=1;
+      u.ring.visible=true; u.ring.material.color.setHex(t.reported?COL.danger:COL.sky);
+      u.ring.scale.setScalar(t.reported?1.35+Math.sin(now/120)*.25:1);
     }
-    // probe progress ring around the contact being scanned
+    // red beacon over a reported scammer, visible without the lens
+    if(t.reported && t.state!=='caught'){
+      if(!u.beacon){
+        u.beacon=new THREE.Mesh(new THREE.CylinderGeometry(6,6,220,12,1,true), new THREE.MeshBasicMaterial({color:COL.danger,transparent:true,opacity:.35,depthWrite:false,side:THREE.DoubleSide}));
+        u.beacon.position.y=110; m.add(u.beacon);
+      }
+      u.beacon.visible=true;
+    } else if(u.beacon){ u.beacon.visible=false; }
+    syncTx(t);
+    // probe progress ring around the sender being scanned, lens only so it doesn't give them away
     const show = scan && scan.t===t && t.look>0 && t.state==='idle';
     if(show){
       if(!u.prog){
         u.prog=new THREE.Mesh(new THREE.RingGeometry(19,22,40,1,0,1), new THREE.MeshBasicMaterial({color:COL.warn,side:THREE.DoubleSide}));
-        u.prog.rotation.x=-Math.PI/2; u.prog.position.y=0.8; m.add(u.prog);
+        u.prog.rotation.x=-Math.PI/2; u.prog.position.y=0.8; u.prog.layers.set(LENS_LAYER); m.add(u.prog);
       }
       u.prog.geometry.dispose();
       u.prog.geometry=new THREE.RingGeometry(19,22,40,1,-Math.PI/2,Math.max(.01,t.look)*Math.PI*2);
@@ -845,6 +935,7 @@ function sync3D(now){
     } else if(u.prog){ u.prog.visible=false; }
   });
   civs.forEach(c=>{ if(c.mesh) c.mesh.position.set(c.x,0,c.y); });
+  bots.forEach(b=>{ b.mesh.position.set(b.x,Math.sin(now/200)*3,b.y); b.mesh.userData.ring.scale.setScalar(1+Math.sin(now/90)*.15); });
   plaques.forEach(p=>{ if(p.mesh){ p.mesh.material.transparent=true; p.mesh.material.opacity=p.read?.4:1; } });
   if(beam){
     beamLine.geometry.setFromPoints([new THREE.Vector3(beam.x1,16,beam.y1), new THREE.Vector3(beam.x2,16,beam.y2)]);
@@ -868,29 +959,62 @@ function renderFrame(now){
   renderer.render(scene,zoomCam);
   renderer.setScissorTest(false); renderer.setViewport(0,0,VW,VH);
 }
+// marker on a reported scammer or security bot, or an arrow at the screen edge when off screen
+const _scr=new THREE.Vector3();
+function drawTag(text,x,y,color){
+  const w=cx.measureText(text).width+10;
+  cx.fillStyle=C2.white; cx.fillRect(x-w/2,y-11,w,15);
+  cx.fillStyle=color; cx.fillText(text,x,y);
+}
+function drawMarker(wx,wy,h,onText,offText,color){
+  const dx=wx-P.x, dy=wy-P.y;
+  _scr.set(wx,h,wy).project(cam3);
+  cx.textAlign='center'; cx.font='bold 11px monospace';
+  if(Math.abs(_scr.x)<=1 && Math.abs(_scr.y)<=1 && _scr.z<1){
+    drawTag(onText,(_scr.x+1)/2*VW,(1-_scr.y)/2*VH,color);
+  } else {
+    const a=Math.atan2(dy,dx), c=Math.cos(a), s=Math.sin(a), r=Math.min((VW/2-34)/Math.max(Math.abs(c),.001),(VH/2-34)/Math.max(Math.abs(s),.001));
+    const ax=VW/2+c*r, ay=VH/2+s*r;
+    cx.fillStyle=color;
+    cx.save(); cx.translate(ax,ay); cx.rotate(a);
+    cx.beginPath(); cx.moveTo(16,0); cx.lineTo(-10,-11); cx.lineTo(-10,11); cx.closePath(); cx.fill();
+    cx.restore();
+    drawTag(offText,clamp(ax-c*58,36,VW-36),clamp(ay-s*30,14,VH-8),color);
+  }
+}
+function drawReported(){
+  targets.forEach(t=>{
+    if(!t.reported || t.state==='caught') return;
+    const inRange=Math.hypot(t.x-P.x,t.y-P.y)<=BLAST_RANGE;
+    drawMarker(t.x,t.y,44,inRange?'SCAMMER · BLAST':'SCAMMER · GET CLOSER','SCAMMER',C2.danger);
+  });
+  bots.forEach(b=>{ const left=Math.ceil(b.time)+'s'; drawMarker(b.x,b.y,72,'BOT · '+left,'BOT · '+left,C2.warn); });
+}
 // 2D overlay: scope frame, crosshair and quick ID card
 function drawOverlay(){
   cx.clearRect(0,0,VW,VH);
   if(mode==='title') return;
+  drawReported();
   const x0=clamp(ptr.x-INSET/2,0,VW-INSET), y0=clamp(ptr.y-INSET/2,0,VH-INSET);
   cx.strokeStyle=C2.ink; cx.lineWidth=3; cx.strokeRect(x0,y0,INSET,INSET);
   cx.strokeStyle=C2.sky; cx.lineWidth=1; cx.strokeRect(x0+4,y0+4,INSET-8,INSET-8);
   const sx=x0+INSET/2, sy=y0+INSET/2;
   cx.strokeStyle=C2.ink; cx.beginPath();
   cx.moveTo(sx-10,sy); cx.lineTo(sx+10,sy); cx.moveTo(sx,sy-10); cx.lineTo(sx,sy+10); cx.stroke();
-  if(hov && hov.state!=='caught'){
-    const idLines=wrapText(plainText(hov.id)||'No detail yet',40,2);
-    const status = hov.state==='pursue' ? 'PURSUING YOU' : 'Quick ID';
+  const card=lock||hov;
+  if(card){
+    const idLines=wrapText(plainText(card.id)||'No detail yet',40,2);
+    const status = card===lock ? 'REPORTED · CLICK OR SPACE TO BLAST' : 'MESSAGE TRACED · CLICK TO PROBE';
     const w=250, h=18+14*idLines.length+34;
     let bx=x0+INSET+12; if(bx+w>VW-8) bx=x0-12-w; if(bx<8) bx=8;
     const by=clamp(sy-h/2,8,VH-h-8);
     cx.fillStyle=C2.white; cx.strokeStyle=C2.ink; cx.lineWidth=2;
     cx.beginPath(); cx.rect(bx,by,w,h); cx.fill(); cx.stroke();
     cx.textAlign='left'; cx.font='600 12px system-ui,sans-serif'; cx.fillStyle=C2.ink;
-    cx.fillText(`${CH_LABEL[hov.m.ch]} · ${plainText(hov.m.from).slice(0,34)}`,bx+10,by+18);
+    cx.fillText(`${CH_LABEL[card.m.ch]} · ${plainText(card.m.from).slice(0,34)}`,bx+10,by+18);
     cx.font='12px system-ui,sans-serif'; cx.fillStyle='#1b2130';
     idLines.forEach((l,i)=>cx.fillText(l,bx+10,by+34+i*14));
-    cx.font='bold 10px monospace'; cx.fillStyle=hov.state==='pursue'?C2.danger:C2.violet;
+    cx.font='bold 10px monospace'; cx.fillStyle=card===lock?C2.danger:C2.violet;
     cx.fillText(status,bx+10,by+h-10);
   }
 }

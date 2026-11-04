@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Patch Panic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#FAFAFA;--ink:#1E3A8A;--card:#ffffff;--line:#BBD5FC;--accent:#6D28D9;--sky:#60A5FA;--muted:color-mix(in srgb,var(--ink) 65%,var(--bg));
+ box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14266A;--ink:#FAFAFA;--card:#1E3A8A;--line:#3556BC;--accent:#60A5FA;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#14266A;--ink:#FAFAFA;--card:#1E3A8A;--line:#3556BC;--accent:#60A5FA;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Fredoka","Trebuchet MS","Segoe UI",system-ui,sans-serif;min-height:100vh;display:flex;justify-content:center;-webkit-tap-highlight-color:transparent}
+main{width:100%;max-width:460px;padding:16px 14px 24px}
+h1{margin:0;font-size:2rem;font-weight:700;letter-spacing:.01em;text-shadow:2px 2px 0 var(--sky)}
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.hud{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.hud div{background:var(--card);border:2px solid var(--line);border-radius:14px;padding:6px 8px;text-align:center;line-height:1.15}
+.hud small{display:block;color:var(--muted);font-size:.72rem}
+.hud b{font-size:1.15rem;font-weight:600}
+#shields span{transition:opacity .3s,transform .3s}
+#shields span.gone{opacity:.2;transform:scale(.8)}
+#stage{position:relative}
+#grid{display:grid;grid-template-columns:repeat(var(--n,3),1fr);gap:10px}
+#grid.n4{gap:8px}#grid.n4 .ico{font-size:1.7rem}#grid.n4 .nm{font-size:.7rem}#grid.n4 .tag{font-size:.6rem}
+#grid.n5{gap:6px}#grid.n5 .ico{font-size:1.4rem}#grid.n5 .nm{font-size:.62rem}#grid.n5 .tag{font-size:.54rem}
+#grid.n6{gap:5px}#grid.n6 .ico{font-size:1.15rem}#grid.n6 .nm{font-size:.55rem}#grid.n6 .tag{font-size:.5rem}
+#grid.n5 .tile,#grid.n6 .tile{border-radius:12px}
+#grid.calm .bug{animation:none}
+@keyframes pulse{50%{box-shadow:0 0 0 6px #60A5FA88;scale:1.05}}
+.shield{background:#FAFAFA;border:3px solid #60A5FA;color:#1E3A8A;animation:pulse .7s infinite}
+.shield .tag{color:#1E3A8A;font-weight:700}
+.tile{position:relative;overflow:hidden;aspect-ratio:1/1.05;border-radius:18px;border:2px solid var(--line);background:var(--card);color:var(--ink);font:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 4px;cursor:pointer;touch-action:manipulation;transition:transform .1s,background .2s}
+.tile:active{transform:scale(.95)}
+.tile:focus-visible{outline:3px solid var(--sky);outline-offset:2px}
+.ico{font-size:2.1rem;line-height:1}
+.nm{font-weight:600;font-size:.82rem;line-height:1.1;text-align:center}
+.tag{font-size:.7rem;color:var(--muted);line-height:1.1;text-align:center}
+.bar{position:absolute;left:0;bottom:0;height:6px;width:100%;background:var(--sky);transform-origin:left}
+.idle .bar,.ok .bar,.bad .bar{display:none}
+@keyframes shrink{to{transform:scaleX(0)}}
+@keyframes wig{0%,100%{rotate:0deg}25%{rotate:-3deg}75%{rotate:3deg}}
+@keyframes blink{50%{opacity:.55}}
+.bug{background:var(--accent);border-color:var(--sky);color:#FAFAFA;animation:wig .5s infinite}
+.bug .tag{color:#FAFAFA}
+.fake{background:repeating-linear-gradient(45deg,#1E3A8A 0 10px,#6D28D9 10px 20px);border:3px dashed #FAFAFA;color:#FAFAFA}
+.fake .nm{text-shadow:0 1px 3px #1E3A8A;animation:blink .35s infinite}
+.fake .tag{color:#FAFAFA;font-weight:700}
+.ok{background:var(--sky);border-color:var(--sky);color:#1E3A8A}
+.ok .tag{color:#1E3A8A}
+.bad{background:#1E3A8A;border-color:var(--accent);color:#FAFAFA}
+.bad .tag{color:#FAFAFA}
+@keyframes shake{20%{translate:-6px}40%{translate:6px}60%{translate:-4px}80%{translate:4px}}
+.shake{animation:shake .35s}
+@keyframes glitch{0%{translate:0;filter:none}25%{translate:-5px 2px;filter:hue-rotate(70deg) saturate(2.5)}50%{translate:5px -2px;filter:invert(.25)}75%{translate:-3px 1px;filter:hue-rotate(-70deg) contrast(1.4)}100%{translate:0;filter:none}}
+.infected{animation:glitch .18s steps(2) 8}
+#virus{position:absolute;inset:-6px;z-index:4;pointer-events:none;border-radius:22px;overflow:hidden;display:none}
+#virus.on{display:block;background:#6D28D955;animation:vflash 1.5s steps(1) forwards}
+#virus.on::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(250,250,250,.14) 0 2px,transparent 2px 4px)}
+@keyframes vflash{0%{background:#6D28D9D9}12%{background:#1E3A8ACC}24%{background:#6D28D9AA}36%{background:#60A5FA66}50%{background:#6D28D988}65%{background:#1E3A8A66}82%{background:#6D28D933}100%{background:transparent}}
+#virus i{position:absolute;font-style:normal;font-size:1.8rem;opacity:0;animation:vfloat 1.4s ease-out forwards}
+@keyframes vfloat{0%{opacity:0;scale:.3}20%{opacity:1}100%{opacity:0;scale:1.6;translate:0 -40px}}
+#virus .vt{position:absolute;left:50%;top:50%;translate:-50% -50%;width:90%;text-align:center;font-weight:700;font-size:1.5rem;color:#FAFAFA;text-shadow:3px 0 #60A5FA,-3px 0 #6D28D9;animation:vjit .12s steps(2) infinite}
+#virus .vt small{display:block;font-size:.85rem;font-weight:500}
+@keyframes vjit{50%{translate:-48% -51%}}
+#tip{margin-top:12px;min-height:64px;background:var(--card);border:2px solid var(--line);border-left:8px solid var(--accent);border-radius:14px;padding:10px 12px;font-size:.95rem;line-height:1.3}
+#tip.bad{background:var(--card);color:var(--ink);border-left-color:var(--sky)}
+#tip b{color:var(--accent)}
+#ov{position:absolute;inset:-6px;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(3px);border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:16px;gap:10px;z-index:5}
+#ov.hide{display:none}
+#ov p{margin:0;line-height:1.3}
+.rules{display:flex;flex-direction:column;gap:6px;text-align:left;font-size:.92rem;width:100%}
+.rules p{background:var(--card);border:2px solid var(--line);border-radius:12px;padding:6px 10px}
+.big{font-size:2.6rem;font-weight:700;line-height:1}
+button.go{font:inherit;font-weight:600;font-size:1.15rem;background:var(--accent);color:#FAFAFA;border:0;border-radius:999px;padding:12px 30px;cursor:pointer;box-shadow:0 4px 0 #1E3A8A;touch-action:manipulation}
+button.go:active{transform:translateY(3px);box-shadow:0 1px 0 #1E3A8A}
+button.go:focus-visible{outline:3px solid var(--sky);outline-offset:3px}
+@media (prefers-reduced-motion:reduce){.bug,.fake .nm,.shake,.infected,#virus.on,#virus i,#virus .vt{animation:none}.shield{animation:none}#virus i{opacity:1}}
+</style>
+</head>
+<body>
+<main>
+ <div class="top"><h1>🛡️ Patch Panic</h1></div>
+ <div class="hud" aria-live="off">
+  <div><small>Score</small><b id="sc">0</b></div>
+  <div><small>Board</small><b id="lv">3×3</b></div>
+  <div><small>Combo</small><b id="cb">0</b></div>
+  <div><small>Shields</small><b id="shields"></b></div>
+ </div>
+ <div id="stage">
+  <div id="grid"></div>
+  <div id="virus"></div>
+  <div id="ov"></div>
+ </div>
+ <div id="tip" role="status">Tap a device the moment it shows an update.</div>
+</main>
+<script>
+const DEV=[["💻","Laptop"],["📱","Phone"],["🖥️","Desktop"],["📡","Router"],["⌚","Watch"],["🎮","Console"],["📺","Smart TV"],["🖨️","Printer"],["🚗","Car"]];
+DEV.push(["🎧","Headphones"],["📷","Camera"],["🔔","Doorbell"],["🤖","Robot vac"],["💡","Smart bulb"],["🔒","Smart lock"],["🏠","Thermostat"],["💳","Card reader"],["🔊","Speaker"]);
+const KINDS=["Security patch","Critical update","Firmware update","Bug fix"];
+const FAKES=[["🎁","FREE super update!"],["🚨","Your PC is infected!"],["💸","You won a driver!"],["📥","Install this fix NOW"]];
+const TIPS=[
+ "Updates fix security holes that attackers already know about.",
+ "Turn on automatic updates so you never fall behind.",
+ "Routers, TVs, printers and cars need updates too.",
+ "Restart when asked. Many updates only finish after a reboot.",
+ "“Remind me later” keeps the hole open. Pick a time tonight instead.",
+ "Updates also bring speed boosts and new features.",
+ "Software that no longer gets updates should be retired or replaced.",
+ "Update apps from the official app store, not from links in messages."
+];
+const $=s=>document.querySelector(s),pick=a=>a[Math.random()*a.length|0];
+const grid=$("#grid"),ov=$("#ov"),tip=$("#tip"),tiles=[];
+let S={on:false},spawnT=0,tipN=0,best=0;
+try{best=+localStorage.getItem("pp-best")||0}catch(e){}
+
+function buildGrid(n){
+ tiles.forEach(t=>clearTimeout(t.t));tiles.length=0;grid.innerHTML="";
+ grid.style.setProperty("--n",n);grid.classList.remove("n3","n4","n5","n6");grid.classList.add("n"+n);
+ for(let i=0;i<n*n;i++){
+  const d=DEV[i%DEV.length],ico=d[0],nm=d[1]+(i>=DEV.length?" 2":"");
+  const b=document.createElement("button");
+  b.innerHTML='<span class="ico"></span><span class="nm"></span><span class="tag"></span><i class="bar"></i>';
+  b.onclick=()=>hit(i);grid.appendChild(b);
+  tiles.push({el:b,ico,nm,mode:"idle",t:0});setTile(i,"idle",0);
+ }
+}
+
+function setTile(i,mode,life,v){
+ const T=tiles[i],e=T.el;clearTimeout(T.t);T.mode=mode;
+ v=v||{idle:[T.ico,T.nm,"Up to date"]}.idle;
+ e.className="tile "+mode;
+ e.children[0].textContent=v[0];e.children[1].textContent=v[1];e.children[2].textContent=v[2];
+ e.setAttribute("aria-label",mode==="fake"?"Fake popup: "+v[1]:mode==="shield"?"Shield power-up: tap to restore a shield":T.nm+", "+v[2]);
+ const bar=e.children[3];bar.style.animation="none";
+ if(life){void bar.offsetWidth;bar.style.animation="shrink "+life+"ms linear forwards";T.t=setTimeout(()=>expire(i),life)}
+}
+function say(html,kind){tip.className=kind||"";tip.innerHTML=html}
+function hud(){
+ $("#sc").textContent=S.score;$("#lv").textContent=S.n+"×"+S.n;$("#cb").textContent=S.combo>1?"🔥"+S.combo:S.combo;
+ $("#shields").innerHTML=[0,1,2].map(n=>'<span class="'+(n<S.lives?"":"gone")+'">🛡️</span>').join("");
+}
+function lose(i,view,msg){
+ S.lives--;S.combo=0;
+ grid.classList.remove("shake");void grid.offsetWidth;grid.classList.add("shake");
+ setTile(i,"bad",700,view);say(msg,"bad");hud();
+ if(S.lives<=0)setTimeout(end,500);
+}
+function expire(i){
+ const m=tiles[i].mode;if(!S.on&&m!=="ok"&&m!=="bad"){setTile(i,"idle",0);return}
+ if(m==="bug")lose(i,["💥","Breached!","Unpatched"],"<b>Breach!</b> You left "+tiles[i].nm+" waiting too long. Attackers love devices that skip updates.");
+ else if(m==="fake"){S.score+=3;S.dodged++;setTile(i,"idle",0);say("<b>Nice ignore!</b> Real updates never shout at you from a popup. +3","");hud()}
+ else setTile(i,"idle",0);
+}
+function hit(i){
+ if(!S.on)return;const T=tiles[i];
+ if(T.mode==="bug"){
+  S.combo++;const mult=Math.min(4,1+Math.floor((S.combo-1)/4));
+  S.score+=10*mult;S.patched++;
+  setTile(i,"ok",450,["✅",T.nm,"Patched! +"+10*mult]);
+  say("<b>Patched!</b> "+TIPS[tipN++%TIPS.length],"");if(S.patched%50===0)grow();
+  hud();
+ }else if(T.mode==="shield"){
+  S.lives=Math.min(3,S.lives+1);setTile(i,"ok",450,["🛡️","Shield","Restored!"]);
+  say("<b>Shield restored!</b> Nice catch. Keep your defenses up.","");hud();
+ }else if(T.mode==="fake"){virus();
+  lose(i,["☠️","Scam!","Fake update"],"<b>That was a fake!</b> Popups and pushy ads are a trap. Update only from Settings or the official app store.");
+ }
+}
+function spawn(){
+ if(!S.on)return;
+ const h=((Date.now()-S.t0)/15000+(S.patched-S.base)/12)*(S.patched>=100?.7:1),L=1+Math.floor(h);
+ if(L>S.level){S.level=L;say("<b>Speed "+L+"!</b> Everything is getting faster.","");hud()}
+ const act=tiles.filter(t=>t.mode==="bug"||t.mode==="fake").length,max=Math.min(2+(S.n-3)*2+Math.floor(h/2),Math.floor(S.n*S.n/2));
+ if(act<max){
+  const idle=tiles.map((t,i)=>i).filter(i=>tiles[i].mode==="idle");
+  if(idle.length){
+   const i=pick(idle),T=tiles[i];
+   if(S.lives<3&&S.spawned>3&&!tiles.some(t=>t.mode==="shield")&&Math.random()<.15){setTile(i,"shield",2600,["🛡️","Shield!","Tap to win one back"])}else
+   if(S.spawned>1&&Math.random()<Math.min(.4,.25+h*.02)){const f=pick(FAKES);setTile(i,"fake",Math.max(1400,2300-h*80),[f[0],f[1],"Click now!!!"])}
+   else setTile(i,"bug",Math.max(1100,3500-h*220),[T.ico,T.nm,"🐛 "+pick(KINDS)]);
+   S.spawned++;
+  }
+ }
+ spawnT=setTimeout(spawn,Math.max(300,1000-h*75));
+}
+function virus(){
+ const v=$("#virus");v.className="";
+ v.innerHTML='<div class="vt">☠️ VIRUS INSTALLED<small>You tapped a fake update</small></div>';
+ for(let k=0;k<16;k++){const e=document.createElement("i");e.textContent="🦠";e.style.left=Math.random()*90+"%";e.style.top=Math.random()*90+"%";e.style.animationDelay=Math.random()*.6+"s";v.appendChild(e)}
+ void v.offsetWidth;v.className="on";
+ grid.classList.remove("infected");void grid.offsetWidth;grid.classList.add("infected");
+ clearTimeout(virus.t);virus.t=setTimeout(()=>{v.className="";v.innerHTML="";grid.classList.remove("infected")},1700);
+}
+function grow(){
+ if(S.patched>=100)grid.classList.add("calm");
+ if(S.n<6){
+  S.n++;buildGrid(S.n);S.base=S.patched;S.t0=Date.now();S.level=1;
+  say("<b>Board upgrade!</b> "+S.n+"×"+S.n+" now, and the speed resets."+(S.patched>=100?" Updates no longer wiggle, so look closely.":""),"");
+ }else say("<b>Max board!</b> You\u2019re patching a 6×6 network. Keep going.","");
+ hud();
+}
+function start(){
+ S={on:true,t0:Date.now(),n:3,base:0,score:0,level:1,combo:0,lives:3,patched:0,dodged:0,spawned:0};
+ tiles.forEach((t,i)=>setTile(i,"idle",0));
+ buildGrid(3);grid.classList.remove("calm","infected");$("#virus").className="";ov.className="hide";say("Go! Tap devices with a 🐛 before the bar runs out.","");hud();
+ spawnT=setTimeout(spawn,500);
+}
+function end(){
+ S.on=false;clearTimeout(spawnT);tiles.forEach((t,i)=>setTile(i,"idle",0));
+ const sc=S.score,rank=sc<60?"Update Rookie 🐣":sc<160?"Patch Padawan 🛠️":sc<320?"Patch Master 🧙":"Update Legend 👑";
+ const isBest=sc>best;if(isBest){best=sc;try{localStorage.setItem("pp-best",sc)}catch(e){}}
+ ov.className="";
+ ov.innerHTML='<div class="big">'+sc+'</div><p><b>'+rank+'</b></p><p>'+S.patched+' devices patched · '+S.dodged+' scams dodged'+(isBest&&sc>0?'<br>🎉 New best score!':'<br>Best: '+best)+'</p>'+
+ '<div class="rules"><p>🔄 Turn on <b>automatic updates</b> everywhere.</p><p>🚫 Never install an “update” from a popup or message.</p><p>📡 Patch the quiet devices too: routers, TVs, printers.</p></div>'+
+ '<button class="go" id="again">Play again</button>';
+ $("#again").onclick=start;$("#again").focus();
+}
+function intro(){
+ ov.innerHTML='<p style="font-size:1.05rem">Cybersecurity Awareness Month</p>'+
+ '<div class="rules"><p>🐛 A device shows <b>Update available</b>? Tap it before its bar runs out.</p><p>🚨 Loud, striped popups are <b>scams</b>. Ignore them!</p><p>🛡️ You have 3 shields. A breach or a scam tap costs one. Tap a glowing shield to win one back.</p></div>'+
+ '<button class="go" id="play">Start patching</button>';
+ $("#play").onclick=start;
+}
+S={score:0,level:1,combo:0,lives:3,on:false,n:3,base:0};buildGrid(3);hud();intro();
+</script>
+</body>
+</html>
